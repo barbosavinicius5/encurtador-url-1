@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Encurtador de URL</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <main class="container">
+    <div class="header">
+      <h1>Encurtador de URL</h1>
+      <p class="subtitle">Transforme URLs longas em links curtos e compartilháveis</p>
+    </div>
+
+    <form id="shorten-form" novalidate>
+      <div class="input-group">
+        <label for="url-input">Cole sua URL longa aqui</label>
+        <input
+          type="url"
+          id="url-input"
+          name="url"
+          placeholder="https://exemplo.com/sua-url-longa"
+          autocomplete="off"
+          required
+          aria-describedby="url-error"
+        />
+        <span id="url-error" class="error-message" aria-live="polite" hidden></span>
+      </div>
+      <button type="submit" id="shorten-btn">Encurtar</button>
+    </form>
+
+    <div id="error-banner" class="error-banner" role="alert" aria-live="assertive" hidden></div>
+
+    <div id="result-section" class="result-section" hidden>
+      <p class="result-label">Seu link curto:</p>
+      <div class="result-row">
+        <a id="short-url-display" href="#" target="_blank" rel="noopener noreferrer" class="short-url"></a>
+        <button id="copy-btn" type="button" aria-label="Copiar link curto">Copiar</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="scripts/app.js"></script>
+</body>
+</html>

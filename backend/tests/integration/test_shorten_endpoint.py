@@ -1,0 +1,107 @@
+"""Testes de integração para o endpoint POST /api/shorten."""
+
+import pytest
+from httpx import AsyncClient, ASGITransport
+from unittest.mock import AsyncMock, patch, MagicMock
+from app.main import create_app
+from app.domain.entities.shortened_url import ShortenedUrl
+
+
+@pytest.fixture
+def app():
+    return create_app()
+
+
+@pytest.fixture
+async def client(app):
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        yield ac
+
+
+class TestShortenEndpoint:
+    """Testes de integração para o endpoint de encurtamento."""
+
+    @pytest.mark.asyncio
+    async def test_post_url_valida_retorna_201(self, client):
+        mock_entity = ShortenedUrl(
+            original_url="https://exemplo.com/pagina-longa", short_code="aB3kZ9", id=1
+        )
+        with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
+            mock_use_case = AsyncMock()
+            mock_use_case.execute = AsyncMock(
+                return_value=MagicMock(
+                    short_code="aB3kZ9",
+                    short_url="https://short.app/aB3kZ9",
+                    original_url="https://exemplo.com/pagina-longa",
+                )
+            )
+            mock_dep.return_value = mock_use_case
+
+            response = await client.post(
+                "/api/shorten", json={"url": "https://exemplo.com/pagina-longa"}
+            )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert "short_code" in data
+        assert "short_url" in data
+        assert "original_url" in data
+
+    @pytest.mark.asyncio
+    async def test_post_url_invalida_retorna_422(self, client):
+        response = await client.post("/api/shorten", json={"url": "nao-e-uma-url"})
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_post_url_vazia_retorna_422(self, client):
+        response = await client.post("/api/shorten", json={"url": ""})
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_post_sem_protocolo_retorna_422(self, client):
+        response = await client.post("/api/shorten", json={"url": "exemplo.com/pagina"})
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_response_short_code_tem_minimo_5_chars(self, client):
+        with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
+            mock_use_case = AsyncMock()
+            mock_use_case.execute = AsyncMock(
+                return_value=MagicMock(
+                    short_code="abc12",
+                    short_url="https://short.app/abc12",
+                    original_url="https://exemplo.com",
+                )
+            )
+            mock_dep.return_value = mock_use_case
+
+            response = await client.post(
+                "/api/shorten", json={"url": "https://exemplo.com"}
+            )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data["short_code"]) >= 5
+
+    @pytest.mark.asyncio
+    async def test_response_short_url_comeca_com_https(self, client):
+        with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
+            mock_use_case = AsyncMock()
+            mock_use_case.execute = AsyncMock(
+                return_value=MagicMock(
+                    short_code="abc12",
+                    short_url="https://short.app/abc12",
+                    original_url="https://exemplo.com",
+                )
+            )
+            mock_dep.return_value = mock_use_case
+
+            response = await client.post(
+                "/api/shorten", json={"url": "https://exemplo.com"}
+            )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["short_url"].startswith("https://")
