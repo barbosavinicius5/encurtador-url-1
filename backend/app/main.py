@@ -5,6 +5,7 @@ import logging.config
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from app.config import get_settings
 from app.infrastructure.routers.redirect_router import router as redirect_router
@@ -48,6 +49,11 @@ def create_app() -> FastAPI:
         docs_url="/docs" if settings.environment != "production" else None,
         redoc_url="/redoc" if settings.environment != "production" else None,
     )
+
+    # HTTPS redirect middleware — apenas em produção
+    # Em desenvolvimento e testes, o middleware é desativado para não interferir
+    if settings.environment == "production":
+        app.add_middleware(HTTPSRedirectMiddleware)
 
     # CORS
     app.add_middleware(

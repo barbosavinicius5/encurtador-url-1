@@ -1,7 +1,7 @@
 """Testes unitários para a entidade ShortenedUrl."""
 
-import pytest
 from datetime import datetime
+
 from app.domain.entities.shortened_url import ShortenedUrl
 
 

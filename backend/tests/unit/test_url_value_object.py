@@ -1,6 +1,7 @@
 """Testes unitários para o value object UrlValue."""
 
 import pytest
+
 from app.domain.value_objects.url import UrlValue
 
 

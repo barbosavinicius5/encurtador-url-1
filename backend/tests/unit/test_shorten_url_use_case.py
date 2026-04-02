@@ -1,10 +1,11 @@
 """Testes unitários para o use case ShortenUrlUseCase."""
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from app.application.use_cases.shorten_url_use_case import ShortenUrlUseCase
+
 from app.application.dtos.shorten_url_dto import ShortenUrlRequest, ShortenUrlResponse
-from app.domain.entities.shortened_url import ShortenedUrl
+from app.application.use_cases.shorten_url_use_case import ShortenUrlUseCase
 
 
 class TestShortenUrlUseCase:

@@ -18,6 +18,6 @@ class ShortenedUrlModel(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     original_url = Column(String, nullable=False)
     short_code = Column(String(20), nullable=False, unique=True, index=True)
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    click_count = Column(Integer, nullable=False, default=0, server_default="0")
+    deleted_at = Column(DateTime(timezone=True), nullable=True)

@@ -1,10 +1,11 @@
 """Testes de integração para o endpoint POST /api/shorten."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from httpx import AsyncClient, ASGITransport
-from unittest.mock import AsyncMock, patch, MagicMock
+from httpx import ASGITransport, AsyncClient
+
 from app.main import create_app
-from app.domain.entities.shortened_url import ShortenedUrl
 
 
 @pytest.fixture
@@ -14,9 +15,7 @@ def app():
 
 @pytest.fixture
 async def client(app):
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
 
@@ -25,9 +24,6 @@ class TestShortenEndpoint:
 
     @pytest.mark.asyncio
     async def test_post_url_valida_retorna_201(self, client):
-        mock_entity = ShortenedUrl(
-            original_url="https://exemplo.com/pagina-longa", short_code="aB3kZ9", id=1
-        )
         with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
             mock_use_case = AsyncMock()
             mock_use_case.execute = AsyncMock(
@@ -77,9 +73,7 @@ class TestShortenEndpoint:
             )
             mock_dep.return_value = mock_use_case
 
-            response = await client.post(
-                "/api/shorten", json={"url": "https://exemplo.com"}
-            )
+            response = await client.post("/api/shorten", json={"url": "https://exemplo.com"})
 
         assert response.status_code == 201
         data = response.json()
@@ -98,9 +92,7 @@ class TestShortenEndpoint:
             )
             mock_dep.return_value = mock_use_case
 
-            response = await client.post(
-                "/api/shorten", json={"url": "https://exemplo.com"}
-            )
+            response = await client.post("/api/shorten", json={"url": "https://exemplo.com"})
 
         assert response.status_code == 201
         data = response.json()

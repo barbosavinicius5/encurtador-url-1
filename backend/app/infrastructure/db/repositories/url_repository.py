@@ -2,7 +2,7 @@
 
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.shortened_url import ShortenedUrl
@@ -55,9 +55,11 @@ class PostgreSQLUrlRepository(UrlRepositoryPort):
 
         Returns:
             Entidade se encontrada, None caso contrário.
+            Retorna None se deleted_at não for None (soft delete).
         """
         stmt = select(ShortenedUrlModel).where(
-            ShortenedUrlModel.short_code == short_code
+            ShortenedUrlModel.short_code == short_code,
+            ShortenedUrlModel.deleted_at.is_(None),
         )
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
@@ -70,6 +72,8 @@ class PostgreSQLUrlRepository(UrlRepositoryPort):
             short_code=model.short_code,
             created_at=model.created_at,
             id=model.id,
+            click_count=model.click_count if model.click_count is not None else 0,
+            deleted_at=model.deleted_at,
         )
 
     async def exists_by_short_code(self, short_code: str) -> bool:
@@ -81,8 +85,25 @@ class PostgreSQLUrlRepository(UrlRepositoryPort):
         Returns:
             True se existir, False caso contrário.
         """
-        stmt = select(ShortenedUrlModel.id).where(
-            ShortenedUrlModel.short_code == short_code
-        )
+        stmt = select(ShortenedUrlModel.id).where(ShortenedUrlModel.short_code == short_code)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none() is not None
+
+    async def increment_click_count(self, short_code: str) -> None:
+        """Incrementa o contador de cliques para um short_code.
+
+        Args:
+            short_code: Código único da URL encurtada.
+        """
+        stmt = (
+            update(ShortenedUrlModel)
+            .where(ShortenedUrlModel.short_code == short_code)
+            .values(click_count=ShortenedUrlModel.click_count + 1)
+        )
+        await self.session.execute(stmt)
+        await self.session.commit()
+
+        logger.info(
+            "Click count incrementado",
+            extra={"short_code": short_code},
+        )

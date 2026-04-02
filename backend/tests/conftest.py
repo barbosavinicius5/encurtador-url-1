@@ -1,7 +1,7 @@
 """Configurações e fixtures compartilhadas para os testes."""
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from app.main import create_app
 
