@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from app.config import get_settings
+from app.infrastructure.routers.links_router import router as links_router
 from app.infrastructure.routers.redirect_router import router as redirect_router
 from app.infrastructure.routers.shorten_router import router as shorten_router
 
@@ -64,8 +65,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Routers — ordem importa: shorten antes de redirect para evitar conflito
+    # Routers — ordem importa: shorten e links antes de redirect para evitar conflito
     app.include_router(shorten_router)
+    app.include_router(links_router)
     app.include_router(redirect_router)
 
     return app

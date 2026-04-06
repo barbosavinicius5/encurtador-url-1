@@ -30,6 +30,7 @@ class PostgreSQLUrlRepository(UrlRepositoryPort):
         model = ShortenedUrlModel(
             original_url=shortened_url.original_url,
             short_code=shortened_url.short_code,
+            session_id=shortened_url.session_id,
         )
         self.session.add(model)
         await self.session.flush()
@@ -45,6 +46,7 @@ class PostgreSQLUrlRepository(UrlRepositoryPort):
             short_code=model.short_code,
             created_at=model.created_at,
             id=model.id,
+            session_id=model.session_id,
         )
 
     async def find_by_short_code(self, short_code: str) -> ShortenedUrl | None:
@@ -107,3 +109,36 @@ class PostgreSQLUrlRepository(UrlRepositoryPort):
             "Click count incrementado",
             extra={"short_code": short_code},
         )
+
+    async def find_by_session_id(self, session_id: str) -> list[ShortenedUrl]:
+        """Retorna todos os links associados ao session_id.
+
+        Args:
+            session_id: UUID da sessão anônima.
+
+        Returns:
+            Lista de entidades ordenadas por created_at DESC.
+        """
+        stmt = (
+            select(ShortenedUrlModel)
+            .where(
+                ShortenedUrlModel.session_id == session_id,
+                ShortenedUrlModel.deleted_at.is_(None),
+            )
+            .order_by(ShortenedUrlModel.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        models = result.scalars().all()
+
+        return [
+            ShortenedUrl(
+                original_url=model.original_url,
+                short_code=model.short_code,
+                created_at=model.created_at,
+                id=model.id,
+                click_count=model.click_count if model.click_count is not None else 0,
+                deleted_at=model.deleted_at,
+                session_id=model.session_id,
+            )
+            for model in models
+        ]

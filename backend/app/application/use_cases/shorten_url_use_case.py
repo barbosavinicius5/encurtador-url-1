@@ -3,6 +3,7 @@
 import logging
 import secrets
 import string
+from typing import Optional
 
 from app.application.dtos.shorten_url_dto import ShortenUrlRequest, ShortenUrlResponse
 from app.config import Settings
@@ -22,11 +23,14 @@ class ShortenUrlUseCase:
         self.repository = repository
         self.settings = settings
 
-    async def execute(self, request: ShortenUrlRequest) -> ShortenUrlResponse:
+    async def execute(
+        self, request: ShortenUrlRequest, session_id: Optional[str] = None
+    ) -> ShortenUrlResponse:
         """Encurta uma URL e retorna o link curto.
 
         Args:
             request: DTO com a URL a ser encurtada.
+            session_id: UUID da sessão anônima (opcional).
 
         Returns:
             DTO com short_code, short_url e original_url.
@@ -41,8 +45,12 @@ class ShortenUrlUseCase:
         # Gera short_code único com retry
         short_code = await self._generate_unique_code()
 
-        # Persiste
-        entity = ShortenedUrl(original_url=url.value, short_code=short_code)
+        # Persiste com session_id
+        entity = ShortenedUrl(
+            original_url=url.value,
+            short_code=short_code,
+            session_id=session_id,
+        )
         saved = await self.repository.save(entity)
 
         return ShortenUrlResponse(
@@ -51,9 +59,7 @@ class ShortenUrlUseCase:
             original_url=saved.original_url,
         )
 
-    async def _generate_unique_code(
-        self, length: int = 6, max_attempts: int = 5
-    ) -> str:
+    async def _generate_unique_code(self, length: int = 6, max_attempts: int = 5) -> str:
         """Gera um short_code único verificando colisões no banco.
 
         Args:

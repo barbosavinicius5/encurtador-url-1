@@ -27,3 +27,8 @@ class UrlRepositoryPort(ABC):
     async def increment_click_count(self, short_code: str) -> None:
         """Incrementa o contador de cliques para um short_code."""
         ...
+
+    @abstractmethod
+    async def find_by_session_id(self, session_id: str) -> list[ShortenedUrl]:
+        """Retorna todos os links associados ao session_id, ordenados por created_at DESC."""
+        ...

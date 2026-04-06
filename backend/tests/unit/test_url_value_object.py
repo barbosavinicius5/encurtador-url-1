@@ -27,9 +27,7 @@ class TestUrlValueObject:
     def test_url_sem_protocolo_invalida(self):
         with pytest.raises(ValueError) as exc:
             UrlValue(value="exemplo.com/pagina")
-        assert (
-            "inválida" in str(exc.value).lower() or "invalida" in str(exc.value).lower()
-        )
+        assert "inválida" in str(exc.value).lower() or "invalida" in str(exc.value).lower()
 
     def test_url_vazia_invalida(self):
         with pytest.raises(ValueError):

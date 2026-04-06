@@ -31,9 +31,7 @@ class RedisClient:
         try:
             return await self._client.get(key)
         except Exception as e:
-            logger.warning(
-                "Erro ao recuperar do Redis", extra={"key": key, "error": str(e)}
-            )
+            logger.warning("Erro ao recuperar do Redis", extra={"key": key, "error": str(e)})
             return None
 
     async def set(self, key: str, value: str, ttl_seconds: int = 3600) -> None:

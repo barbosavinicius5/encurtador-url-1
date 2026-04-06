@@ -39,6 +39,34 @@
         <button id="copy-btn" type="button" aria-label="Copiar link curto">Copiar</button>
       </div>
     </div>
+
+    <!-- Painel de Links -->
+    <section id="links-panel" class="links-panel" hidden>
+      <!-- Estado vazio -->
+      <div id="empty-state" class="empty-state hidden">
+        <p class="empty-state__icon" aria-hidden="true">🔗</p>
+        <p class="empty-state__title">Você ainda não tem links encurtados.</p>
+        <p class="empty-state__subtitle">Encurte sua primeira URL acima!</p>
+      </div>
+
+      <!-- Tabela de links -->
+      <div id="links-table-wrapper" class="links-table-wrapper hidden">
+        <h2 class="links-panel__title">Meus Links</h2>
+        <table id="links-table" class="links-table" aria-label="Lista de links encurtados">
+          <thead>
+            <tr>
+              <th scope="col">URL Original</th>
+              <th scope="col">Link Curto</th>
+              <th scope="col">Cliques</th>
+              <th scope="col">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="links-tbody">
+            <!-- Linhas renderizadas via JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <script src="scripts/app.js"></script>

@@ -77,9 +77,7 @@ class TestShortenUrlUseCase:
         assert response.short_url.startswith("https://short.app/")
 
     @pytest.mark.asyncio
-    async def test_dois_encurtamentos_geram_codigos_distintos(
-        self, use_case, mock_repository
-    ):
+    async def test_dois_encurtamentos_geram_codigos_distintos(self, use_case, mock_repository):
         mock_repository.exists_by_short_code = AsyncMock(return_value=False)
 
         request = ShortenUrlRequest(url="https://exemplo.com/pagina")

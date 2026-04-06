@@ -15,3 +15,4 @@ class ShortenedUrl:
     id: int | None = None
     click_count: int = 0
     deleted_at: Optional[datetime] = None
+    session_id: Optional[str] = None

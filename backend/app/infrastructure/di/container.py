@@ -3,6 +3,7 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.use_cases.list_links_use_case import ListLinksUseCase
 from app.application.use_cases.redirect_url_use_case import RedirectUrlUseCase
 from app.application.use_cases.shorten_url_use_case import ShortenUrlUseCase
 from app.config import Settings, get_settings
@@ -35,3 +36,12 @@ async def get_redirect_use_case(
     """Dependency que fornece o use case de redirect configurado."""
     repository = PostgreSQLUrlRepository(session)
     return RedirectUrlUseCase(repository=repository, cache=cache)
+
+
+async def get_list_links_use_case(
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> ListLinksUseCase:
+    """Dependency que fornece o use case de listagem de links configurado."""
+    repository = PostgreSQLUrlRepository(session)
+    return ListLinksUseCase(repository=repository)

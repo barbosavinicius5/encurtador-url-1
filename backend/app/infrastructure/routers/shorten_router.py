@@ -1,8 +1,10 @@
 """Router para o endpoint de encurtamento de URL."""
 
 import logging
+import uuid
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dtos.shorten_url_dto import ShortenUrlRequest, ShortenUrlResponse
@@ -14,6 +16,8 @@ from app.infrastructure.middleware.rate_limiter import rate_limit_by_ip
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+SESSION_COOKIE_NAME = "session_id"
 
 
 async def _get_use_case(
@@ -41,16 +45,40 @@ async def _get_use_case(
 )
 async def shorten_url(
     request: ShortenUrlRequest,
+    response: Response,
+    session_id: Optional[str] = Cookie(default=None),
     use_case: ShortenUrlUseCase = Depends(_get_use_case),
 ) -> ShortenUrlResponse:
-    """Encurta uma URL e retorna o link curto."""
+    """Encurta uma URL e retorna o link curto.
+
+    Lê o cookie session_id para associar o link à sessão do usuário.
+    Se o cookie não existir, gera um novo UUID e o define na resposta.
+    """
+    # Gerenciar sessão anônima via cookie
+    is_new_session = False
+    if not session_id:
+        session_id = str(uuid.uuid4())
+        is_new_session = True
+        logger.info("Nova sessão anônima criada", extra={"session_id_prefix": session_id[:8]})
+
     try:
-        response = await use_case.execute(request)
+        result = await use_case.execute(request, session_id=session_id)
         logger.info(
             "URL encurtada com sucesso",
-            extra={"short_code": response.short_code},
+            extra={"short_code": result.short_code},
         )
-        return response
+
+        # Setar cookie apenas quando é uma nova sessão
+        if is_new_session:
+            response.set_cookie(
+                key=SESSION_COOKIE_NAME,
+                value=session_id,
+                httponly=True,
+                samesite="lax",
+                path="/",
+            )
+
+        return result
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except RuntimeError as e:

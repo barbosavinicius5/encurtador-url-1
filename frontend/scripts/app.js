@@ -9,6 +9,9 @@
 // Em produção, substituir por injeção via servidor ou variável de ambiente
 const API_BASE_URL = window.ENV_API_BASE_URL || 'http://localhost:8000';
 
+// Chave do cache sessionStorage para os links
+const LINKS_CACHE_KEY = 'linksCache';
+
 // Referências aos elementos do DOM
 const form = document.getElementById('shorten-form');
 const urlInput = document.getElementById('url-input');
@@ -161,6 +164,9 @@ form.addEventListener('submit', async (event) => {
 
     if (result.success) {
       showResult(result.shortUrl);
+      // Invalida cache e recarrega painel de links
+      sessionStorage.removeItem(LINKS_CACHE_KEY);
+      await loadLinks();
     } else {
       showBannerError(result.message);
     }
@@ -192,4 +198,160 @@ copyBtn.addEventListener('click', async () => {
     copyBtn.textContent = 'Copiar';
     copyBtn.classList.remove('copied');
   }, 2000);
+});
+
+// ————————————————————————————————————————————————————
+// Painel de links da sessão
+// ————————————————————————————————————————————————————
+
+/**
+ * Trunca uma URL longa para exibição.
+ * @param {string} url
+ * @param {number} maxLength
+ * @returns {string}
+ */
+function truncateUrl(url, maxLength) {
+  if (url.length <= maxLength) return url;
+  return url.substring(0, maxLength) + '...';
+}
+
+/**
+ * Copia um texto para a área de transferência com feedback visual no botão.
+ * @param {HTMLButtonElement} btn
+ * @param {string} text
+ */
+async function copyWithFeedback(btn, text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = 'Copiado! ✓';
+    btn.classList.add('copied');
+  } catch {
+    // Fallback silencioso: Clipboard API pode não estar disponível em HTTP
+    console.error('Clipboard API não disponível');
+    btn.textContent = 'Copie manualmente';
+  }
+
+  setTimeout(() => {
+    btn.textContent = 'Copiar';
+    btn.classList.remove('copied');
+  }, 2000);
+}
+
+/**
+ * Renderiza a tabela de links ou o estado vazio.
+ * @param {Array<{short_code: string, original_url: string, short_url: string, click_count: number}>} links
+ */
+function renderLinks(links) {
+  const panel = document.getElementById('links-panel');
+  const emptyState = document.getElementById('empty-state');
+  const tableWrapper = document.getElementById('links-table-wrapper');
+  const tbody = document.getElementById('links-tbody');
+
+  // Exibir o painel
+  panel.hidden = false;
+
+  if (!links || links.length === 0) {
+    emptyState.classList.remove('hidden');
+    tableWrapper.classList.add('hidden');
+    return;
+  }
+
+  emptyState.classList.add('hidden');
+  tableWrapper.classList.remove('hidden');
+
+  // Limpar linhas anteriores
+  tbody.innerHTML = '';
+
+  links.forEach((link) => {
+    const tr = document.createElement('tr');
+
+    // Coluna: URL Original
+    const tdOriginal = document.createElement('td');
+    tdOriginal.className = 'links-table__original-url';
+    tdOriginal.setAttribute('title', link.original_url);
+    const aOriginal = document.createElement('a');
+    aOriginal.href = link.original_url;
+    aOriginal.target = '_blank';
+    aOriginal.rel = 'noopener noreferrer';
+    aOriginal.textContent = truncateUrl(link.original_url, 50);
+    tdOriginal.appendChild(aOriginal);
+
+    // Coluna: Link Curto
+    const tdShort = document.createElement('td');
+    tdShort.className = 'links-table__short-url';
+    const aShort = document.createElement('a');
+    aShort.href = link.short_url;
+    aShort.target = '_blank';
+    aShort.rel = 'noopener noreferrer';
+    aShort.textContent = link.short_url;
+    tdShort.appendChild(aShort);
+
+    // Coluna: Cliques
+    const tdClicks = document.createElement('td');
+    tdClicks.className = 'links-table__clicks';
+    tdClicks.textContent = link.click_count;
+
+    // Coluna: Ação
+    const tdAction = document.createElement('td');
+    tdAction.className = 'links-table__action';
+    const btnCopy = document.createElement('button');
+    btnCopy.type = 'button';
+    btnCopy.className = 'btn-copy';
+    btnCopy.textContent = 'Copiar';
+    btnCopy.setAttribute('aria-label', `Copiar link curto ${link.short_url}`);
+    btnCopy.addEventListener('click', () => copyWithFeedback(btnCopy, link.short_url));
+    tdAction.appendChild(btnCopy);
+
+    tr.appendChild(tdOriginal);
+    tr.appendChild(tdShort);
+    tr.appendChild(tdClicks);
+    tr.appendChild(tdAction);
+    tbody.appendChild(tr);
+  });
+}
+
+/**
+ * Busca links da sessão atual via GET /api/links.
+ * Utiliza sessionStorage como cache para evitar chamadas redundantes.
+ */
+async function loadLinks() {
+  // Tentar cache do sessionStorage primeiro
+  try {
+    const cached = sessionStorage.getItem(LINKS_CACHE_KEY);
+    if (cached) {
+      renderLinks(JSON.parse(cached));
+      return;
+    }
+  } catch {
+    // Ignorar erros de parse do cache
+    sessionStorage.removeItem(LINKS_CACHE_KEY);
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/links`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      console.error('[loadLinks] Erro na API:', response.status);
+      // Exibir estado vazio sem lançar erro
+      renderLinks([]);
+      return;
+    }
+
+    const data = await response.json();
+    // Salvar no cache
+    sessionStorage.setItem(LINKS_CACHE_KEY, JSON.stringify(data.links));
+    renderLinks(data.links);
+  } catch (err) {
+    console.error('[loadLinks] Falha ao carregar links:', err);
+    // Exibir estado vazio sem lançar exceção
+    renderLinks([]);
+  }
+}
+
+// Carregar links ao inicializar a página
+document.addEventListener('DOMContentLoaded', () => {
+  loadLinks();
 });
