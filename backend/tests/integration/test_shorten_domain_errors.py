@@ -1,4 +1,4 @@
-"""Testes de integração para mapeamento de exceptions de domínio no endpoint de encurtamento."""
+"""Testes de integração para mapeamento de exceptions de domínio no endpoint de encurtamento v1."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -31,7 +31,7 @@ class TestShortenEndpointDomainErrors:
 
     @pytest.mark.asyncio
     async def test_url_invalida_retorna_422(self, app, client):
-        """POST /api/shorten com URL inválida deve retornar 422."""
+        """POST /api/v1/shorten com URL inválida deve retornar 422."""
         app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
             mock_use_case = AsyncMock()
@@ -43,7 +43,7 @@ class TestShortenEndpointDomainErrors:
             mock_dep.return_value = mock_use_case
 
             response = await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "nao-e-uma-url"},
                 headers={"X-API-Key": "valid-key"},
             )
@@ -55,7 +55,7 @@ class TestShortenEndpointDomainErrors:
 
     @pytest.mark.asyncio
     async def test_dominio_malicioso_retorna_422_com_mensagem(self, app, client):
-        """POST /api/shorten com domínio bloqueado deve retornar 422 com mensagem descritiva."""
+        """POST /api/v1/shorten com domínio bloqueado deve retornar 422 com mensagem descritiva."""
         app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
             mock_use_case = AsyncMock()
@@ -65,7 +65,7 @@ class TestShortenEndpointDomainErrors:
             mock_dep.return_value = mock_use_case
 
             response = await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "https://phishing.com/login"},
                 headers={"X-API-Key": "valid-key"},
             )
@@ -77,7 +77,7 @@ class TestShortenEndpointDomainErrors:
 
     @pytest.mark.asyncio
     async def test_slug_colisao_retorna_409(self, app, client):
-        """POST /api/shorten com slug em colisão deve retornar 409."""
+        """POST /api/v1/shorten com slug em colisão deve retornar 409."""
         app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
             mock_use_case = AsyncMock()
@@ -85,7 +85,7 @@ class TestShortenEndpointDomainErrors:
             mock_dep.return_value = mock_use_case
 
             response = await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "https://valido.com"},
                 headers={"X-API-Key": "valid-key"},
             )
@@ -97,7 +97,7 @@ class TestShortenEndpointDomainErrors:
 
     @pytest.mark.asyncio
     async def test_url_valida_retorna_201(self, app, client):
-        """POST /api/shorten com URL válida deve retornar 201."""
+        """POST /api/v1/shorten com URL válida deve retornar 201."""
         app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
             mock_use_case = AsyncMock()
@@ -111,7 +111,7 @@ class TestShortenEndpointDomainErrors:
             mock_dep.return_value = mock_use_case
 
             response = await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "https://valido.com"},
                 headers={"X-API-Key": "valid-key"},
             )

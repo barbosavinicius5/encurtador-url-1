@@ -1,4 +1,4 @@
-"""Testes de integração para o endpoint GET /api/urls/{short_code}."""
+"""Testes de integração para o endpoint GET /api/v1/urls/{short_code}."""
 
 from unittest.mock import AsyncMock, patch
 
@@ -32,11 +32,11 @@ def _make_valid_api_key() -> ApiKey:
 
 
 class TestUrlDetailsEndpoint:
-    """Testes para o endpoint GET /api/urls/{short_code}."""
+    """Testes para o endpoint GET /api/v1/urls/{short_code}."""
 
     @pytest.mark.asyncio
     async def test_get_url_existente_retorna_200(self, app, client):
-        """GET /api/urls/{short_code} com URL existente deve retornar 200."""
+        """GET /api/v1/urls/{short_code} com URL existente deve retornar 200."""
         valid_key = _make_valid_api_key()
         expected_response = GetUrlDetailsResponse(
             original_url="https://www.exemplo.com/pagina",
@@ -53,7 +53,7 @@ class TestUrlDetailsEndpoint:
             mock_dep.return_value = mock_use_case
             try:
                 response = await client.get(
-                    "/api/urls/abc123",
+                    "/api/v1/urls/abc123",
                     headers={"X-API-Key": "valid-api-key-abc123"},
                 )
             finally:
@@ -68,7 +68,7 @@ class TestUrlDetailsEndpoint:
 
     @pytest.mark.asyncio
     async def test_get_url_inexistente_retorna_404(self, app, client):
-        """GET /api/urls/{short_code} com short_code inexistente deve retornar 404."""
+        """GET /api/v1/urls/{short_code} com short_code inexistente deve retornar 404."""
         valid_key = _make_valid_api_key()
         mock_use_case = AsyncMock(spec=GetUrlDetailsUseCase)
         mock_use_case.execute.side_effect = UrlNotFoundError("inexistente")
@@ -79,7 +79,7 @@ class TestUrlDetailsEndpoint:
             mock_dep.return_value = mock_use_case
             try:
                 response = await client.get(
-                    "/api/urls/inexistente",
+                    "/api/v1/urls/inexistente",
                     headers={"X-API-Key": "valid-api-key-abc123"},
                 )
             finally:
@@ -92,21 +92,21 @@ class TestUrlDetailsEndpoint:
 
     @pytest.mark.asyncio
     async def test_get_url_sem_api_key_retorna_401(self, client):
-        """GET /api/urls/{short_code} sem X-API-Key deve retornar 401."""
-        response = await client.get("/api/urls/abc123")
+        """GET /api/v1/urls/{short_code} sem X-API-Key deve retornar 401."""
+        response = await client.get("/api/v1/urls/abc123")
 
         assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_get_url_com_api_key_invalida_retorna_401(self, app, client):
-        """GET /api/urls/{short_code} com API key inválida deve retornar 401."""
+        """GET /api/v1/urls/{short_code} com API key inválida deve retornar 401."""
         mock_repo = AsyncMock()
         mock_repo.get_by_key.return_value = None
 
         app.dependency_overrides[get_api_key_repository] = lambda: mock_repo
         try:
             response = await client.get(
-                "/api/urls/abc123",
+                "/api/v1/urls/abc123",
                 headers={"X-API-Key": "chave-invalida"},
             )
         finally:
@@ -133,7 +133,7 @@ class TestUrlDetailsEndpoint:
             mock_dep.return_value = mock_use_case
             try:
                 response = await client.get(
-                    "/api/urls/test01",
+                    "/api/v1/urls/test01",
                     headers={"X-API-Key": "valid-api-key-abc123"},
                 )
             finally:
@@ -165,7 +165,7 @@ class TestUrlDetailsEndpoint:
             mock_dep.return_value = mock_use_case
             try:
                 response = await client.get(
-                    "/api/urls/test01",
+                    "/api/v1/urls/test01",
                     headers={"X-API-Key": "valid-api-key-abc123"},
                 )
             finally:
@@ -195,20 +195,20 @@ class TestSwaggerDocumentation:
 
     @pytest.mark.asyncio
     async def test_openapi_json_contem_endpoint_shorten(self, client):
-        """OpenAPI JSON deve conter o endpoint /api/shorten."""
+        """OpenAPI JSON deve conter o endpoint /api/v1/shorten."""
         response = await client.get("/openapi.json")
 
         assert response.status_code == 200
         data = response.json()
         assert "paths" in data
-        assert "/api/shorten" in data["paths"]
+        assert "/api/v1/shorten" in data["paths"]
 
     @pytest.mark.asyncio
     async def test_openapi_json_contem_endpoint_url_details(self, client):
-        """OpenAPI JSON deve conter o endpoint /api/urls/{short_code}."""
+        """OpenAPI JSON deve conter o endpoint /api/v1/urls/{short_code}."""
         response = await client.get("/openapi.json")
 
         assert response.status_code == 200
         data = response.json()
         assert "paths" in data
-        assert "/api/urls/{short_code}" in data["paths"]
+        assert "/api/v1/urls/{short_code}" in data["paths"]
