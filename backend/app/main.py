@@ -8,30 +8,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from app.config import get_settings
+from app.core.logging_config import LOGGING_CONFIG
+from app.infrastructure.middleware.metrics_middleware import MetricsMiddleware
+from app.infrastructure.middleware.request_id_middleware import RequestIdMiddleware
 from app.infrastructure.routers.links_router import router as links_router
+from app.infrastructure.routers.metrics_router import router as metrics_router
 from app.infrastructure.routers.redirect_router import router as redirect_router
 from app.infrastructure.routers.shorten_router import router as shorten_router
 from app.infrastructure.routers.url_details_router import router as url_details_router
-
-LOGGING_CONFIG = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "json": {
-            "format": '{"time": "%(asctime)s", "level": "%(levelname)s", "name": "%(name)s", "message": "%(message)s"}',
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "json",
-        },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": "INFO",
-    },
-}
 
 
 def create_app() -> FastAPI:
@@ -56,7 +40,8 @@ def create_app() -> FastAPI:
             "\n\n## Endpoints Principais\n"
             "- `POST /api/shorten` — Encurtar uma URL\n"
             "- `GET /api/urls/{short_code}` — Consultar detalhes e cliques\n"
-            "- `GET /{short_code}` — Redirecionar para a URL original"
+            "- `GET /{short_code}` — Redirecionar para a URL original\n"
+            "- `GET /metrics` — Métricas Prometheus (latência e contadores)"
         ),
         version="1.0.0",
         docs_url="/docs",
@@ -77,7 +62,16 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Middlewares de observabilidade
+    # Ordem: RequestIdMiddleware deve ser adicionado ANTES de MetricsMiddleware
+    # para garantir que o request_id esteja disponível durante a captura de métricas.
+    # Nota: add_middleware aplica em ordem reversa (LIFO), então o último adicionado
+    # é o primeiro a executar.
+    app.add_middleware(MetricsMiddleware)
+    app.add_middleware(RequestIdMiddleware)
+
     # Routers — ordem importa: shorten e links antes de redirect para evitar conflito
+    app.include_router(metrics_router)
     app.include_router(shorten_router)
     app.include_router(links_router)
     app.include_router(url_details_router)
