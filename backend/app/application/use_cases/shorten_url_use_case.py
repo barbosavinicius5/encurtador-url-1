@@ -5,9 +5,12 @@ import secrets
 import string
 from typing import Optional
 
+from fastapi import HTTPException
+
 from app.application.dtos.shorten_url_dto import ShortenUrlRequest, ShortenUrlResponse
 from app.config import Settings
 from app.domain.entities.shortened_url import ShortenedUrl
+from app.domain.exceptions import SlugCollisionError
 from app.domain.ports.url_repository_port import UrlRepositoryPort
 from app.domain.value_objects.url import UrlValue
 
@@ -36,22 +39,51 @@ class ShortenUrlUseCase:
             DTO com short_code, short_url e original_url.
 
         Raises:
-            ValueError: Se a URL for inválida.
-            RuntimeError: Se não conseguir gerar short_code único.
+            InvalidUrlError: Se a URL for inválida ou malformada.
+            MaliciousDomainError: Se a URL apontar para domínio bloqueado.
+            HTTPException(409): Se a URL já foi encurtada pela mesma sessão.
+            SlugCollisionError: Se não conseguir gerar short_code único após max_attempts.
         """
-        # Valida URL via value object (lança ValueError se inválida)
-        url = UrlValue(value=request.url)
+        # Valida e sanitiza URL via value object (lança InvalidUrlError se inválida)
+        url = UrlValue(url=request.url, blocked_domains=self.settings.blocked_domains)
+
+        # Normaliza a URL para comparação case-insensitive
+        normalized_url = url.value.strip().lower()
+
+        # Verifica duplicata por URL + sessão (apenas quando session_id está presente)
+        if session_id:
+            existing = await self.repository.find_by_original_url_and_session(
+                original_url=normalized_url,
+                session_id=session_id,
+            )
+            if existing:
+                logger.info(
+                    "URL já encurtada para a sessão, retornando link existente",
+                    extra={"short_code": existing.short_code},
+                )
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "detail": "URL já encurtada",
+                        "short_url": existing.short_code,
+                    },
+                )
 
         # Gera short_code único com retry
         short_code = await self._generate_unique_code()
 
-        # Persiste com session_id
+        # Persiste com session_id e URL normalizada
         entity = ShortenedUrl(
-            original_url=url.value,
+            original_url=normalized_url,
             short_code=short_code,
             session_id=session_id,
         )
         saved = await self.repository.save(entity)
+
+        logger.info(
+            "URL encurtada com sucesso",
+            extra={"short_code": saved.short_code, "url_length": len(normalized_url)},
+        )
 
         return ShortenUrlResponse(
             short_code=saved.short_code,
@@ -63,14 +95,14 @@ class ShortenUrlUseCase:
         """Gera um short_code único verificando colisões no banco.
 
         Args:
-            length: Tamanho do código (mínimo 5).
-            max_attempts: Máximo de tentativas antes de lançar RuntimeError.
+            length: Tamanho do código (padrão 6 caracteres base62).
+            max_attempts: Máximo de tentativas antes de lançar SlugCollisionError.
 
         Returns:
             Short code único.
 
         Raises:
-            RuntimeError: Se não conseguir gerar código único após max_attempts.
+            SlugCollisionError: Se não conseguir gerar código único após max_attempts.
         """
         for attempt in range(max_attempts):
             code = "".join(secrets.choice(ALPHABET) for _ in range(length))
@@ -81,6 +113,4 @@ class ShortenUrlUseCase:
                 extra={"attempt": attempt + 1, "max_attempts": max_attempts},
             )
 
-        raise RuntimeError(
-            f"Não foi possível gerar short_code único após {max_attempts} tentativas"
-        )
+        raise SlugCollisionError(slug=f"<gerado após {max_attempts} tentativas>")
