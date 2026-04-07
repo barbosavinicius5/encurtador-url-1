@@ -6,6 +6,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.infrastructure.di.container import get_redirect_use_case
+from app.infrastructure.middleware.brute_force_protection import brute_force_protection
+from app.infrastructure.middleware.rate_limiter import rate_limit_by_ip
 from app.main import create_app
 
 
@@ -20,6 +22,19 @@ async def client(app):
         yield ac
 
 
+def _apply_rate_limit_bypass(app):
+    """Aplica mocks de bypass das dependencies de rate limiting para testes de redirect."""
+
+    async def _no_rate_limit():
+        pass
+
+    async def _no_brute_force():
+        pass
+
+    app.dependency_overrides[rate_limit_by_ip] = _no_rate_limit
+    app.dependency_overrides[brute_force_protection] = _no_brute_force
+
+
 class TestRedirectEndpoint:
     """Testes de integração para o endpoint de redirect."""
 
@@ -29,6 +44,7 @@ class TestRedirectEndpoint:
         mock_use_case = AsyncMock()
         mock_use_case.execute = AsyncMock(return_value="https://example.com")
 
+        _apply_rate_limit_bypass(app)
         app.dependency_overrides[get_redirect_use_case] = lambda: mock_use_case
         try:
             response = await client.get("/abc123", follow_redirects=False)
@@ -43,6 +59,7 @@ class TestRedirectEndpoint:
         mock_use_case = AsyncMock()
         mock_use_case.execute = AsyncMock(return_value="https://example.com")
 
+        _apply_rate_limit_bypass(app)
         app.dependency_overrides[get_redirect_use_case] = lambda: mock_use_case
         try:
             response = await client.get("/abc123", follow_redirects=False)
@@ -57,6 +74,7 @@ class TestRedirectEndpoint:
         mock_use_case = AsyncMock()
         mock_use_case.execute = AsyncMock(return_value="https://example.com")
 
+        _apply_rate_limit_bypass(app)
         app.dependency_overrides[get_redirect_use_case] = lambda: mock_use_case
         try:
             response = await client.get("/abc123", follow_redirects=False)
@@ -74,6 +92,7 @@ class TestRedirectEndpoint:
             side_effect=ValueError("short_code 'invalido' não encontrado")
         )
 
+        _apply_rate_limit_bypass(app)
         app.dependency_overrides[get_redirect_use_case] = lambda: mock_use_case
         try:
             response = await client.get("/invalido", follow_redirects=False)
@@ -90,6 +109,7 @@ class TestRedirectEndpoint:
             side_effect=ValueError("short_code 'invalido' não encontrado")
         )
 
+        _apply_rate_limit_bypass(app)
         app.dependency_overrides[get_redirect_use_case] = lambda: mock_use_case
         try:
             response = await client.get("/invalido", follow_redirects=False)
@@ -106,6 +126,7 @@ class TestRedirectEndpoint:
             side_effect=ValueError("short_code 'invalido' não encontrado")
         )
 
+        _apply_rate_limit_bypass(app)
         app.dependency_overrides[get_redirect_use_case] = lambda: mock_use_case
         try:
             response = await client.get("/invalido", follow_redirects=False)
@@ -122,6 +143,7 @@ class TestRedirectEndpoint:
             side_effect=ValueError("short_code 'invalido' não encontrado")
         )
 
+        _apply_rate_limit_bypass(app)
         app.dependency_overrides[get_redirect_use_case] = lambda: mock_use_case
         try:
             response = await client.get("/invalido", follow_redirects=False)
@@ -137,6 +159,7 @@ class TestRedirectEndpoint:
         mock_use_case = AsyncMock()
         mock_use_case.execute = AsyncMock(side_effect=ValueError("não encontrado"))
 
+        _apply_rate_limit_bypass(app)
         app.dependency_overrides[get_redirect_use_case] = lambda: mock_use_case
         try:
             response = await client.get("/invalido", follow_redirects=False)
@@ -151,6 +174,7 @@ class TestRedirectEndpoint:
         mock_use_case = AsyncMock()
         mock_use_case.execute = AsyncMock(side_effect=ValueError("não encontrado"))
 
+        _apply_rate_limit_bypass(app)
         app.dependency_overrides[get_redirect_use_case] = lambda: mock_use_case
         try:
             response = await client.get("/invalido", follow_redirects=False)
@@ -165,6 +189,7 @@ class TestRedirectEndpoint:
         mock_use_case = AsyncMock()
         mock_use_case.execute = AsyncMock(side_effect=ValueError("não encontrado"))
 
+        _apply_rate_limit_bypass(app)
         app.dependency_overrides[get_redirect_use_case] = lambda: mock_use_case
         try:
             response = await client.get("/invalido", follow_redirects=False)

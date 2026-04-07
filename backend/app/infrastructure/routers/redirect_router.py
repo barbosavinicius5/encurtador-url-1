@@ -9,6 +9,8 @@ from starlette.responses import Response
 
 from app.application.use_cases.redirect_url_use_case import RedirectUrlUseCase
 from app.infrastructure.di.container import get_redirect_use_case
+from app.infrastructure.middleware.brute_force_protection import brute_force_protection
+from app.infrastructure.middleware.rate_limiter import rate_limit_by_ip
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +60,7 @@ async def health_check() -> dict:
     response_class=RedirectResponse,
     status_code=302,
     response_model=None,
+    dependencies=[Depends(rate_limit_by_ip), Depends(brute_force_protection)],
 )
 async def redirect_short_code(
     short_code: str,

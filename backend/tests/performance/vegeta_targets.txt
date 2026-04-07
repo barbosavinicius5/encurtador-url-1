@@ -1,0 +1,10 @@
+GET http://localhost:8001/perf01
+GET http://localhost:8001/perf02
+GET http://localhost:8001/perf03
+GET http://localhost:8001/perf04
+GET http://localhost:8001/perf05
+GET http://localhost:8001/perf06
+GET http://localhost:8001/perf07
+GET http://localhost:8001/perf08
+GET http://localhost:8001/perf09
+GET http://localhost:8001/perf10

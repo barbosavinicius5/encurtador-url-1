@@ -1,25 +1,78 @@
-"""Value Object para validação de URL."""
+"""Value Object para validação de URL com conformidade RFC 3986."""
 
-import re
-from dataclasses import dataclass
+import logging
+from urllib.parse import urlparse
 
-URL_PATTERN = re.compile(
-    r"^https?://"
-    r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"
-    r"localhost|"
-    r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
-    r"(?::\d+)?"
-    r"(?:/?|[/?]\S+)$",
-    re.IGNORECASE,
-)
+from app.domain.exceptions import InvalidUrlError, MaliciousDomainError
+from app.domain.sanitization import sanitize_url
+
+logger = logging.getLogger(__name__)
+
+_ALLOWED_SCHEMES = ("http", "https")
 
 
-@dataclass(frozen=True)
 class UrlValue:
-    """Value Object imutável para validação de URL."""
+    """Value Object imutável para validação de URL com conformidade RFC 3986.
 
-    value: str
+    Valida:
+        - Scheme: apenas http e https são permitidos
+        - Host: não pode ser vazio
+        - Blocklist: domínios de phishing/malware são rejeitados
 
-    def __post_init__(self):
-        if not self.value or not URL_PATTERN.match(self.value):
-            raise ValueError(f"URL inválida: '{self.value}'")
+    Sanitização é aplicada antes de qualquer validação estrutural.
+    """
+
+    __slots__ = ("_url",)
+
+    def __init__(self, url: str, blocked_domains: list[str] | None = None):
+        """Inicializa e valida o Value Object URL.
+
+        Args:
+            url: A URL a ser validada e encurtada.
+            blocked_domains: Lista opcional de domínios bloqueados (phishing/malware).
+
+        Raises:
+            InvalidUrlError: Se a URL não estiver em conformidade com RFC 3986
+                            ou exceder o tamanho máximo.
+            MaliciousDomainError: Se o domínio estiver na lista de bloqueio.
+        """
+        # Sanitiza antes de qualquer validação
+        sanitized = sanitize_url(url)
+
+        # Parse da URL para validação estrutural
+        parsed = urlparse(sanitized)
+
+        # Valida scheme (apenas http/https)
+        if parsed.scheme not in _ALLOWED_SCHEMES:
+            raise InvalidUrlError(
+                url=sanitized,
+                reason=f"scheme '{parsed.scheme}' não permitido; use http ou https",
+            )
+
+        # Valida host não-vazio
+        if not parsed.netloc:
+            raise InvalidUrlError(
+                url=sanitized,
+                reason="host ausente",
+            )
+
+        # Verifica blocklist de domínios maliciosos
+        domain = (parsed.hostname or "").lower()
+        for blocked in blocked_domains or []:
+            blocked_lower = blocked.strip().lower()
+            if domain == blocked_lower or domain.endswith(f".{blocked_lower}"):
+                logger.warning(
+                    "URL rejeitada por domínio malicioso",
+                    extra={"blocked_domain": blocked_lower},
+                )
+                raise MaliciousDomainError(domain=domain)
+
+        object.__setattr__(self, "_url", sanitized)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        raise AttributeError("UrlValue é imutável")
+
+    @property
+    def value(self) -> str:
+        """Retorna o valor da URL sanitizada e validada."""
+        return self._url
