@@ -717,4 +717,9 @@ describe('app.js — Verificação de código-fonte', () => {
     const content = fs.readFileSync(appJsPath, 'utf-8');
     expect(content).toContain('catch (networkError)');
   });
+
+  test('app.js usa clearTimeout para evitar acúmulo de timers no botão copiar', () => {
+    const content = fs.readFileSync(appJsPath, 'utf-8');
+    expect(content).toContain('clearTimeout');
+  });
 });

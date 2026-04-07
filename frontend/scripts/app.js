@@ -185,8 +185,16 @@ form.addEventListener('submit', async (event) => {
 /**
  * Copiar link curto para a área de transferência.
  */
+let copyResetTimer = null;
+
 copyBtn.addEventListener('click', async () => {
   const shortUrl = shortUrlDisplay.textContent;
+
+  // Cancelar timer anterior para evitar acúmulo em cliques rápidos
+  if (copyResetTimer) {
+    clearTimeout(copyResetTimer);
+    copyResetTimer = null;
+  }
 
   try {
     await navigator.clipboard.writeText(shortUrl);
@@ -198,9 +206,10 @@ copyBtn.addEventListener('click', async () => {
   }
 
   // Restaura estado original após 2 segundos
-  setTimeout(() => {
+  copyResetTimer = setTimeout(() => {
     copyBtn.textContent = 'Copiar';
     copyBtn.classList.remove('copied');
+    copyResetTimer = null;
   }, 2000);
 });
 
