@@ -1,4 +1,8 @@
-"""Router para o endpoint de encurtamento de URL."""
+"""Router v1 para o endpoint de encurtamento de URL.
+
+Versão versionada de shorten_router.py com path /shorten (sem prefixo /api/).
+Montado com prefix /api/v1 no main.py, resultando em /api/v1/shorten.
+"""
 
 import logging
 import uuid
@@ -26,19 +30,14 @@ async def _get_use_case(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> ShortenUrlUseCase:
-    """Dependency que delega para container.get_shorten_use_case em runtime.
-
-    Ao importar `container` dentro da função (não no topo do módulo),
-    o unittest.mock.patch em `app.infrastructure.di.container.get_shorten_use_case`
-    é capturado corretamente.
-    """
+    """Dependency que delega para container.get_shorten_use_case em runtime."""
     import app.infrastructure.di.container as container  # noqa: PLC0415
 
     return await container.get_shorten_use_case(session=session, settings=settings)
 
 
 @router.post(
-    "/api/shorten",
+    "/shorten",
     response_model=ShortenUrlResponse,
     status_code=201,
     summary="Encurtar URL",
@@ -66,19 +65,18 @@ async def _get_use_case(
         429: {"description": "Rate limit excedido"},
     },
 )
-async def shorten_url(
+async def shorten_url_v1(
     request: ShortenUrlRequest,
     response: Response,
     session_id: Optional[str] = Cookie(default=None),
     use_case: ShortenUrlUseCase = Depends(_get_use_case),
     _auth: ApiKey = Depends(api_key_auth),
 ) -> ShortenUrlResponse:
-    """Encurta uma URL e retorna o link curto.
+    """Encurta uma URL e retorna o link curto (v1).
 
     Lê o cookie session_id para associar o link à sessão do usuário.
     Se o cookie não existir, gera um novo UUID e o define na resposta.
     """
-    # Gerenciar sessão anônima via cookie
     is_new_session = False
     if not session_id:
         session_id = str(uuid.uuid4())
@@ -92,7 +90,6 @@ async def shorten_url(
             extra={"short_code": result.short_code},
         )
 
-        # Setar cookie apenas quando é uma nova sessão
         if is_new_session:
             response.set_cookie(
                 key=SESSION_COOKIE_NAME,

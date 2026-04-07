@@ -33,6 +33,12 @@ class TestRedirectUrlUseCaseWithClickCount:
         return RedirectUrlUseCase(repository=mock_repository, cache=mock_cache)
 
     @pytest.fixture
+    def use_case_custom_ttl(self, mock_repository, mock_cache):
+        return RedirectUrlUseCase(
+            repository=mock_repository, cache=mock_cache, cache_ttl_seconds=60
+        )
+
+    @pytest.fixture
     def sample_entity(self):
         return ShortenedUrl(
             original_url="https://example.com",
@@ -184,6 +190,129 @@ class TestRedirectUrlUseCaseWithClickCount:
 
         # Redirect deve ocorrer normalmente
         assert result == "https://example.com"
+
+
+class TestRedirectUrlUseCaseTtlConfiguravel:
+    """Testes para validar o TTL configurável via construtor (T001-BE)."""
+
+    @pytest.fixture
+    def mock_repository(self):
+        repo = AsyncMock()
+        repo.find_by_short_code = AsyncMock()
+        repo.increment_click_count = AsyncMock()
+        return repo
+
+    @pytest.fixture
+    def mock_cache(self):
+        cache = AsyncMock()
+        cache.get = AsyncMock(return_value=None)
+        cache.set = AsyncMock()
+        return cache
+
+    @pytest.fixture
+    def sample_entity(self):
+        return ShortenedUrl(
+            original_url="https://www.exemplo.com/longa",
+            short_code="aB12x",
+            click_count=0,
+        )
+
+    # --- Cenário A: TTL default (3600) propagado ---
+
+    @pytest.mark.asyncio
+    async def test_redirect_sets_cache_with_default_ttl(
+        self, mock_repository, mock_cache, sample_entity
+    ):
+        """TTL default (3600) deve ser usado quando nenhum TTL é injetado."""
+        mock_repository.find_by_short_code = AsyncMock(return_value=sample_entity)
+        use_case = RedirectUrlUseCase(mock_repository, mock_cache)
+
+        await use_case.execute("aB12x")
+
+        mock_cache.set.assert_called_once_with(
+            "url:aB12x", "https://www.exemplo.com/longa", ttl_seconds=3600
+        )
+
+    # --- Cenário B: TTL customizado dev (60s) ---
+
+    @pytest.mark.asyncio
+    async def test_redirect_sets_cache_with_custom_ttl_dev(
+        self, mock_repository, mock_cache, sample_entity
+    ):
+        """TTL customizado (60s) para desenvolvimento deve ser usado corretamente."""
+        mock_repository.find_by_short_code = AsyncMock(return_value=sample_entity)
+        use_case = RedirectUrlUseCase(mock_repository, mock_cache, cache_ttl_seconds=60)
+
+        await use_case.execute("aB12x")
+
+        mock_cache.set.assert_called_once_with(
+            "url:aB12x", "https://www.exemplo.com/longa", ttl_seconds=60
+        )
+
+    # --- Cenário C: TTL customizado prod agressivo (7200s) ---
+
+    @pytest.mark.asyncio
+    async def test_redirect_sets_cache_with_custom_ttl_prod(
+        self, mock_repository, mock_cache, sample_entity
+    ):
+        """TTL customizado (7200s) para produção agressiva deve ser usado corretamente."""
+        mock_repository.find_by_short_code = AsyncMock(return_value=sample_entity)
+        use_case = RedirectUrlUseCase(mock_repository, mock_cache, cache_ttl_seconds=7200)
+
+        await use_case.execute("aB12x")
+
+        mock_cache.set.assert_called_once_with(
+            "url:aB12x", "https://www.exemplo.com/longa", ttl_seconds=7200
+        )
+
+    # --- Cenário D: Cache hit não chama set ---
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_nao_chama_set(self, mock_repository, mock_cache):
+        """Com cache hit, cache.set NÃO deve ser chamado (sem renovação de TTL)."""
+        mock_cache.get = AsyncMock(return_value="https://www.exemplo.com/longa")
+        use_case = RedirectUrlUseCase(mock_repository, mock_cache, cache_ttl_seconds=60)
+
+        await use_case.execute("aB12x")
+
+        mock_cache.set.assert_not_called()
+
+    # --- Cenário E: TTL é atributo de instância ---
+
+    def test_use_case_armazena_cache_ttl_seconds(self, mock_repository, mock_cache):
+        """O use case deve armazenar cache_ttl_seconds como atributo de instância."""
+        use_case = RedirectUrlUseCase(mock_repository, mock_cache, cache_ttl_seconds=300)
+
+        assert use_case.cache_ttl_seconds == 300
+
+
+class TestSettingsCacheTtl:
+    """Testes para validar que Settings contém cache_ttl_seconds configurável."""
+
+    def test_settings_tem_campo_cache_ttl_seconds(self):
+        """Settings deve ter o campo cache_ttl_seconds com default 3600."""
+        from app.config import Settings
+
+        settings = Settings()
+        assert hasattr(settings, "cache_ttl_seconds")
+        assert settings.cache_ttl_seconds == 3600
+
+    def test_settings_cache_ttl_seconds_override_via_env(self, monkeypatch):
+        """cache_ttl_seconds deve ser sobrescrito via variável de ambiente."""
+        import app.config as config_module
+
+        monkeypatch.setenv("CACHE_TTL_SECONDS", "60")
+        # Recriar Settings para pegar nova env var (sem lru_cache)
+        settings = config_module.Settings()
+        assert settings.cache_ttl_seconds == 60
+
+    def test_settings_cache_ttl_seconds_7200_via_env(self, monkeypatch):
+        """cache_ttl_seconds deve aceitar valores customizados altos."""
+        import app.config as config_module
+
+        monkeypatch.setenv("CACHE_TTL_SECONDS", "7200")
+        settings = config_module.Settings()
+        assert settings.cache_ttl_seconds == 7200
 
 
 class TestShortenedUrlEntityWithClickCount:

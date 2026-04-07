@@ -1,4 +1,4 @@
-"""Testes de integração para o endpoint GET /api/links e cookie de sessão."""
+"""Testes de integração para o endpoint GET /api/v1/links e cookie de sessão."""
 
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -43,13 +43,13 @@ class TestListLinksEndpoint:
 
     @pytest.mark.asyncio
     async def test_sem_cookie_retorna_lista_vazia(self, client):
-        """GET /api/links sem cookie deve retornar 200 com lista vazia."""
+        """GET /api/v1/links sem cookie deve retornar 200 com lista vazia."""
         with patch("app.infrastructure.di.container.get_list_links_use_case") as mock_dep:
             mock_use_case = AsyncMock()
             mock_use_case.execute = AsyncMock(return_value=[])
             mock_dep.return_value = mock_use_case
 
-            response = await client.get("/api/links")
+            response = await client.get("/api/v1/links")
 
         assert response.status_code == 200
         data = response.json()
@@ -57,7 +57,7 @@ class TestListLinksEndpoint:
 
     @pytest.mark.asyncio
     async def test_com_cookie_e_links_retorna_lista(self, client):
-        """GET /api/links com cookie e links deve retornar a lista."""
+        """GET /api/v1/links com cookie e links deve retornar a lista."""
         session_id = "550e8400-e29b-41d4-a716-446655440000"
         link1 = make_entity("abc123", session_id, click_count=7)
         link2 = make_entity("xyz987", session_id, click_count=0)
@@ -68,7 +68,7 @@ class TestListLinksEndpoint:
             mock_dep.return_value = mock_use_case
 
             response = await client.get(
-                "/api/links",
+                "/api/v1/links",
                 cookies={"session_id": session_id},
             )
 
@@ -78,7 +78,7 @@ class TestListLinksEndpoint:
 
     @pytest.mark.asyncio
     async def test_estrutura_da_resposta_com_links(self, client):
-        """GET /api/links deve retornar os campos corretos em cada link."""
+        """GET /api/v1/links deve retornar os campos corretos em cada link."""
         session_id = "test-session-uuid"
         link = make_entity("abc123", session_id, click_count=5)
 
@@ -88,7 +88,7 @@ class TestListLinksEndpoint:
             mock_dep.return_value = mock_use_case
 
             response = await client.get(
-                "/api/links",
+                "/api/v1/links",
                 cookies={"session_id": session_id},
             )
 
@@ -105,14 +105,14 @@ class TestListLinksEndpoint:
 
     @pytest.mark.asyncio
     async def test_com_cookie_mas_sem_links_retorna_lista_vazia(self, client):
-        """GET /api/links com cookie mas sem links deve retornar lista vazia."""
+        """GET /api/v1/links com cookie mas sem links deve retornar lista vazia."""
         with patch("app.infrastructure.di.container.get_list_links_use_case") as mock_dep:
             mock_use_case = AsyncMock()
             mock_use_case.execute = AsyncMock(return_value=[])
             mock_dep.return_value = mock_use_case
 
             response = await client.get(
-                "/api/links",
+                "/api/v1/links",
                 cookies={"session_id": "sessao-sem-links"},
             )
 
@@ -122,23 +122,23 @@ class TestListLinksEndpoint:
 
     @pytest.mark.asyncio
     async def test_nao_seta_cookie_na_resposta_de_listagem(self, client):
-        """GET /api/links não deve setar cookie na resposta."""
+        """GET /api/v1/links não deve setar cookie na resposta."""
         with patch("app.infrastructure.di.container.get_list_links_use_case") as mock_dep:
             mock_use_case = AsyncMock()
             mock_use_case.execute = AsyncMock(return_value=[])
             mock_dep.return_value = mock_use_case
 
-            response = await client.get("/api/links")
+            response = await client.get("/api/v1/links")
 
         assert "set-cookie" not in response.headers
 
 
 class TestShortenEndpointWithSession:
-    """Testes de integração para o comportamento de sessão no POST /api/shorten."""
+    """Testes de integração para o comportamento de sessão no POST /api/v1/shorten."""
 
     @pytest.mark.asyncio
     async def test_sem_cookie_gera_novo_session_id(self, app, client):
-        """POST /api/shorten sem cookie deve gerar um novo session_id e setá-lo."""
+        """POST /api/v1/shorten sem cookie deve gerar um novo session_id e setá-lo."""
         app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
             mock_use_case = AsyncMock()
@@ -152,7 +152,7 @@ class TestShortenEndpointWithSession:
             mock_dep.return_value = mock_use_case
 
             response = await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "https://exemplo.com"},
                 headers={"X-API-Key": "valid-key"},
             )
@@ -164,7 +164,7 @@ class TestShortenEndpointWithSession:
 
     @pytest.mark.asyncio
     async def test_com_cookie_nao_gera_novo_session_id(self, app, client):
-        """POST /api/shorten com cookie existente não deve alterar o cookie."""
+        """POST /api/v1/shorten com cookie existente não deve alterar o cookie."""
         existing_session = "550e8400-e29b-41d4-a716-446655440000"
 
         app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
@@ -180,7 +180,7 @@ class TestShortenEndpointWithSession:
             mock_dep.return_value = mock_use_case
 
             response = await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "https://exemplo.com"},
                 headers={"X-API-Key": "valid-key"},
                 cookies={"session_id": existing_session},
@@ -194,7 +194,7 @@ class TestShortenEndpointWithSession:
 
     @pytest.mark.asyncio
     async def test_session_id_e_passado_ao_use_case(self, app, client):
-        """POST /api/shorten deve passar o session_id ao use case."""
+        """POST /api/v1/shorten deve passar o session_id ao use case."""
         existing_session = "550e8400-e29b-41d4-a716-446655440000"
 
         app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
@@ -210,7 +210,7 @@ class TestShortenEndpointWithSession:
             mock_dep.return_value = mock_use_case
 
             await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "https://exemplo.com"},
                 headers={"X-API-Key": "valid-key"},
                 cookies={"session_id": existing_session},

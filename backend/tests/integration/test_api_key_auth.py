@@ -1,4 +1,4 @@
-"""Testes de integração para autenticação por API Key no endpoint POST /api/shorten."""
+"""Testes de integração para autenticação por API Key no endpoint POST /api/v1/shorten."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -44,9 +44,9 @@ class TestApiKeyAuth:
 
     @pytest.mark.asyncio
     async def test_sem_api_key_retorna_401(self, client):
-        """POST /api/shorten sem X-API-Key deve retornar 401."""
+        """POST /api/v1/shorten sem X-API-Key deve retornar 401."""
         response = await client.post(
-            "/api/shorten",
+            "/api/v1/shorten",
             json={"url": "https://exemplo.com/pagina"},
         )
 
@@ -57,13 +57,13 @@ class TestApiKeyAuth:
 
     @pytest.mark.asyncio
     async def test_api_key_invalida_retorna_401(self, app, client):
-        """POST /api/shorten com X-API-Key inválida deve retornar 401."""
+        """POST /api/v1/shorten com X-API-Key inválida deve retornar 401."""
         mock_repo = AsyncMock()
         mock_repo.get_by_key.return_value = None
         app.dependency_overrides[get_api_key_repository] = lambda: mock_repo
         try:
             response = await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "https://exemplo.com/pagina"},
                 headers={"X-API-Key": "chave-invalida-xyz"},
             )
@@ -76,7 +76,7 @@ class TestApiKeyAuth:
 
     @pytest.mark.asyncio
     async def test_api_key_inativa_retorna_401(self, app, client):
-        """POST /api/shorten com X-API-Key inativa deve retornar 401."""
+        """POST /api/v1/shorten com X-API-Key inativa deve retornar 401."""
         inactive_key = ApiKey(
             id="test-id",
             key="inactive-key",
@@ -88,7 +88,7 @@ class TestApiKeyAuth:
         app.dependency_overrides[get_api_key_repository] = lambda: mock_repo
         try:
             response = await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "https://exemplo.com/pagina"},
                 headers={"X-API-Key": "inactive-key"},
             )
@@ -99,7 +99,7 @@ class TestApiKeyAuth:
 
     @pytest.mark.asyncio
     async def test_api_key_valida_retorna_201(self, app, client):
-        """POST /api/shorten com X-API-Key válida deve retornar 201."""
+        """POST /api/v1/shorten com X-API-Key válida deve retornar 201."""
         valid_key = _make_valid_api_key()
 
         # Override completo do api_key_auth para evitar DB e Redis
@@ -109,7 +109,7 @@ class TestApiKeyAuth:
             mock_dep.return_value = _make_mock_shorten_use_case()
             try:
                 response = await client.post(
-                    "/api/shorten",
+                    "/api/v1/shorten",
                     json={"url": "https://exemplo.com/pagina"},
                     headers={"X-API-Key": "valid-api-key-abc123"},
                 )
@@ -123,7 +123,7 @@ class TestApiKeyAuth:
 
     @pytest.mark.asyncio
     async def test_rate_limit_excedido_retorna_429(self, app, client):
-        """POST /api/shorten com rate limit excedido deve retornar 429 com Retry-After."""
+        """POST /api/v1/shorten com rate limit excedido deve retornar 429 com Retry-After."""
         valid_key = _make_valid_api_key()
         mock_repo = AsyncMock()
         mock_repo.get_by_key.return_value = valid_key
@@ -144,7 +144,7 @@ class TestApiKeyAuth:
         ):
             try:
                 response = await client.post(
-                    "/api/shorten",
+                    "/api/v1/shorten",
                     json={"url": "https://exemplo.com/pagina"},
                     headers={"X-API-Key": "valid-api-key-abc123"},
                 )
@@ -195,13 +195,13 @@ class TestApiKeyAuth:
             mock_dep.return_value = _make_mock_shorten_use_case()
             try:
                 response_a = await client.post(
-                    "/api/shorten",
+                    "/api/v1/shorten",
                     json={"url": "https://exemplo.com"},
                     headers={"X-API-Key": "key-a-unique"},
                 )
 
                 response_b = await client.post(
-                    "/api/shorten",
+                    "/api/v1/shorten",
                     json={"url": "https://exemplo.com"},
                     headers={"X-API-Key": "key-b-unique"},
                 )

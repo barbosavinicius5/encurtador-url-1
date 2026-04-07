@@ -6,6 +6,7 @@ import pytest
 
 from app.application.dtos.shorten_url_dto import ShortenUrlRequest, ShortenUrlResponse
 from app.application.use_cases.shorten_url_use_case import ShortenUrlUseCase
+from app.domain.exceptions import InvalidUrlError, SlugCollisionError
 
 
 class TestShortenUrlUseCase:
@@ -15,6 +16,7 @@ class TestShortenUrlUseCase:
     def mock_repository(self):
         repo = AsyncMock()
         repo.exists_by_short_code = AsyncMock(return_value=False)
+        repo.find_by_original_url_and_session = AsyncMock(return_value=None)
         repo.save = AsyncMock(side_effect=lambda entity: entity)
         return repo
 
@@ -22,6 +24,7 @@ class TestShortenUrlUseCase:
     def mock_settings(self):
         settings = MagicMock()
         settings.base_url = "https://short.app"
+        settings.blocked_domains = []
         return settings
 
     @pytest.fixture
@@ -46,6 +49,12 @@ class TestShortenUrlUseCase:
             await use_case.execute(request)
 
     @pytest.mark.asyncio
+    async def test_url_invalida_levanta_invalid_url_error(self, use_case):
+        request = ShortenUrlRequest(url="ftp://invalida.com")
+        with pytest.raises(InvalidUrlError):
+            await use_case.execute(request)
+
+    @pytest.mark.asyncio
     async def test_gera_short_code_unico_com_retry(self, use_case, mock_repository):
         # Primeiras 4 chamadas retornam True (colisão), 5a retorna False
         mock_repository.exists_by_short_code = AsyncMock(
@@ -61,7 +70,7 @@ class TestShortenUrlUseCase:
     async def test_falha_apos_max_tentativas(self, use_case, mock_repository):
         mock_repository.exists_by_short_code = AsyncMock(return_value=True)
         request = ShortenUrlRequest(url="https://exemplo.com/pagina")
-        with pytest.raises(RuntimeError):
+        with pytest.raises(SlugCollisionError):
             await use_case.execute(request)
 
     @pytest.mark.asyncio
