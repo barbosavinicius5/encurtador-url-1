@@ -1,6 +1,7 @@
 """Port (interface) para o repositório de URLs."""
 
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from app.domain.entities.shortened_url import ShortenedUrl
 
@@ -46,5 +47,24 @@ class UrlRepositoryPort(ABC):
 
         Returns:
             Lista de entidades ShortenedUrl ordenadas conforme os parâmetros.
+        """
+        ...
+
+    @abstractmethod
+    async def find_by_original_url_and_session(
+        self,
+        original_url: str,
+        session_id: str,
+    ) -> Optional[ShortenedUrl]:
+        """Retorna o link se já existir para essa URL + sessão, None caso contrário.
+
+        A busca é feita com a URL já normalizada (lowercase).
+
+        Args:
+            original_url: URL original já normalizada (lowercase, sem espaços extras).
+            session_id: UUID da sessão anônima.
+
+        Returns:
+            Entidade ShortenedUrl se encontrada, None caso contrário.
         """
         ...

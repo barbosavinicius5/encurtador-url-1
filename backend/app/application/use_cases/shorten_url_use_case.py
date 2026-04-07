@@ -5,6 +5,8 @@ import secrets
 import string
 from typing import Optional
 
+from fastapi import HTTPException
+
 from app.application.dtos.shorten_url_dto import ShortenUrlRequest, ShortenUrlResponse
 from app.config import Settings
 from app.domain.entities.shortened_url import ShortenedUrl
@@ -37,17 +39,40 @@ class ShortenUrlUseCase:
 
         Raises:
             ValueError: Se a URL for inválida.
+            HTTPException(409): Se a URL já foi encurtada pela mesma sessão.
             RuntimeError: Se não conseguir gerar short_code único.
         """
         # Valida URL via value object (lança ValueError se inválida)
         url = UrlValue(value=request.url)
 
+        # Normaliza a URL para comparação case-insensitive
+        normalized_url = url.value.strip().lower()
+
+        # Verifica duplicata por URL + sessão (apenas quando session_id está presente)
+        if session_id:
+            existing = await self.repository.find_by_original_url_and_session(
+                original_url=normalized_url,
+                session_id=session_id,
+            )
+            if existing:
+                logger.info(
+                    "URL já encurtada para a sessão, retornando link existente",
+                    extra={"short_code": existing.short_code},
+                )
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "detail": "URL já encurtada",
+                        "short_url": existing.short_code,
+                    },
+                )
+
         # Gera short_code único com retry
         short_code = await self._generate_unique_code()
 
-        # Persiste com session_id
+        # Persiste com session_id e URL normalizada
         entity = ShortenedUrl(
-            original_url=url.value,
+            original_url=normalized_url,
             short_code=short_code,
             session_id=session_id,
         )

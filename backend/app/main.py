@@ -3,9 +3,10 @@
 import logging
 import logging.config
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.infrastructure.routers.links_router import router as links_router
@@ -82,6 +83,27 @@ def create_app() -> FastAPI:
     app.include_router(links_router)
     app.include_router(url_details_router)
     app.include_router(redirect_router)
+
+    # Handler global de exceções — registrado APÓS os routers e handlers específicos
+    # Captura qualquer exceção não tratada que não seja HTTPException
+    # Garante que nenhum detalhe técnico vaze na resposta
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        """Handler global que captura exceções não tratadas e retorna resposta padronizada.
+
+        Registra o erro internamente (com stack trace) sem expô-lo ao cliente.
+        HTTPExceptions são tratadas pelo handler padrão do FastAPI e não chegam aqui.
+        """
+        logger = logging.getLogger(__name__)
+        logger.error(
+            "Exceção não tratada capturada pelo handler global",
+            exc_info=exc,
+            extra={"path": str(request.url), "method": request.method},
+        )
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Ocorreu um erro inesperado. Tente novamente mais tarde."},
+        )
 
     return app
 

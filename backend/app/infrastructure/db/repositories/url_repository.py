@@ -1,6 +1,7 @@
 """Adapter PostgreSQL para o repositório de URLs."""
 
 import logging
+from typing import Optional
 
 from sqlalchemy import asc, select, update
 from sqlalchemy import desc as sa_desc
@@ -155,3 +156,38 @@ class PostgreSQLUrlRepository(UrlRepositoryPort):
             )
             for model in models
         ]
+
+    async def find_by_original_url_and_session(
+        self,
+        original_url: str,
+        session_id: str,
+    ) -> Optional[ShortenedUrl]:
+        """Retorna o link se já existir para essa URL + sessão, None caso contrário.
+
+        Args:
+            original_url: URL original já normalizada (lowercase, sem espaços extras).
+            session_id: UUID da sessão anônima.
+
+        Returns:
+            Entidade ShortenedUrl se encontrada, None caso contrário.
+        """
+        stmt = select(ShortenedUrlModel).where(
+            ShortenedUrlModel.original_url == original_url,
+            ShortenedUrlModel.session_id == session_id,
+            ShortenedUrlModel.deleted_at.is_(None),
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+
+        if model is None:
+            return None
+
+        return ShortenedUrl(
+            original_url=model.original_url,
+            short_code=model.short_code,
+            created_at=model.created_at,
+            id=model.id,
+            click_count=model.click_count if model.click_count is not None else 0,
+            deleted_at=model.deleted_at,
+            session_id=model.session_id,
+        )

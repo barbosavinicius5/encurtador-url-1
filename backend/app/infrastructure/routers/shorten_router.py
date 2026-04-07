@@ -101,8 +101,14 @@ async def shorten_url(
             )
 
         return result
+    except HTTPException:
+        # Re-lança HTTPExceptions (incluindo 409 de URL duplicada) sem modificação
+        raise
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    except RuntimeError as e:
-        logger.error("Erro interno ao encurtar URL", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail="Erro interno ao processar requisição")
+    except RuntimeError:
+        logger.error("Erro ao encurtar URL", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Ocorreu um erro inesperado. Tente novamente mais tarde.",
+        )
