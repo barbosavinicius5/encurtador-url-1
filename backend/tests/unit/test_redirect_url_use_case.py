@@ -1,10 +1,10 @@
-"""Testes unitários para o use case RedirectUrlUseCase (US-002)."""
+"""Testes unitários para o use case RedirectUrlUseCase (US-002 / T001-BE)."""
 
-import asyncio
 import logging
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import BackgroundTasks
 
 from app.application.use_cases.redirect_url_use_case import RedirectUrlUseCase
 from app.domain.entities.shortened_url import ShortenedUrl
@@ -29,6 +29,11 @@ class TestRedirectUrlUseCaseWithClickCount:
         return cache
 
     @pytest.fixture
+    def background_tasks(self):
+        """Fixture que fornece BackgroundTasks real para validar tarefas agendadas."""
+        return BackgroundTasks()
+
+    @pytest.fixture
     def use_case(self, mock_repository, mock_cache):
         return RedirectUrlUseCase(repository=mock_repository, cache=mock_cache)
 
@@ -43,122 +48,165 @@ class TestRedirectUrlUseCaseWithClickCount:
     # --- Cenário A: Cache hit ---
 
     @pytest.mark.asyncio
-    async def test_redirect_cache_hit_retorna_url(self, use_case, mock_cache):
+    async def test_redirect_cache_hit_retorna_url(self, use_case, mock_cache, background_tasks):
         """Redirect via cache retorna URL correta."""
         mock_cache.get = AsyncMock(return_value="https://example.com")
 
-        result = await use_case.execute("abc123")
+        result = await use_case.execute("abc123", background_tasks)
 
         assert result == "https://example.com"
 
     @pytest.mark.asyncio
     async def test_redirect_cache_hit_nao_consulta_repositorio(
-        self, use_case, mock_cache, mock_repository
+        self, use_case, mock_cache, mock_repository, background_tasks
     ):
         """Com cache hit, o repositório não deve ser consultado."""
         mock_cache.get = AsyncMock(return_value="https://example.com")
 
-        await use_case.execute("abc123")
+        await use_case.execute("abc123", background_tasks)
 
         mock_repository.find_by_short_code.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_redirect_cache_hit_chama_increment_banco(
-        self, use_case, mock_cache, mock_repository
+    async def test_redirect_cache_hit_agenda_increment_como_background_task(
+        self, use_case, mock_cache, mock_repository, background_tasks
     ):
-        """Com cache hit, o banco deve ser chamado para incrementar o clique."""
+        """Com cache hit, deve agendar o incremento via BackgroundTasks."""
         mock_cache.get = AsyncMock(return_value="https://example.com")
 
-        await use_case.execute("abc123")
+        await use_case.execute("abc123", background_tasks)
 
-        # Aguardar task assíncrona
-        await asyncio.sleep(0.01)
+        # Verificar que existe ao menos uma BackgroundTask agendada
+        assert len(background_tasks.tasks) >= 1
+
+    @pytest.mark.asyncio
+    async def test_redirect_cache_hit_executa_increment_no_banco(
+        self, use_case, mock_cache, mock_repository, background_tasks
+    ):
+        """Com cache hit, executar BackgroundTask incrementa no banco."""
+        mock_cache.get = AsyncMock(return_value="https://example.com")
+
+        await use_case.execute("abc123", background_tasks)
+
+        # Executar as background tasks manualmente
+        for task in background_tasks.tasks:
+            await task()
+
         mock_repository.increment_click_count.assert_called_once_with("abc123")
 
     # --- Cenário B: Cache miss ---
 
     @pytest.mark.asyncio
     async def test_redirect_cache_miss_consulta_repositorio(
-        self, use_case, mock_cache, mock_repository, sample_entity
+        self, use_case, mock_cache, mock_repository, sample_entity, background_tasks
     ):
         """Com cache miss, o repositório deve ser consultado."""
         mock_cache.get = AsyncMock(return_value=None)
         mock_repository.find_by_short_code = AsyncMock(return_value=sample_entity)
 
-        result = await use_case.execute("abc123")
+        result = await use_case.execute("abc123", background_tasks)
 
         assert result == "https://example.com"
         mock_repository.find_by_short_code.assert_called_once_with("abc123")
 
     @pytest.mark.asyncio
     async def test_redirect_cache_miss_popula_cache(
-        self, use_case, mock_cache, mock_repository, sample_entity
+        self, use_case, mock_cache, mock_repository, sample_entity, background_tasks
     ):
         """Com cache miss, a URL deve ser populada no cache."""
         mock_cache.get = AsyncMock(return_value=None)
         mock_repository.find_by_short_code = AsyncMock(return_value=sample_entity)
 
-        await use_case.execute("abc123")
+        await use_case.execute("abc123", background_tasks)
 
         mock_cache.set.assert_called_once_with(
             "url:abc123", "https://example.com", ttl_seconds=3600
         )
 
     @pytest.mark.asyncio
-    async def test_redirect_cache_miss_agenda_increment_click(
-        self, use_case, mock_cache, mock_repository, sample_entity
+    async def test_redirect_cache_miss_agenda_increment_como_background_task(
+        self, use_case, mock_cache, mock_repository, sample_entity, background_tasks
     ):
-        """Com cache miss, o clique deve ser registrado no banco de forma assíncrona."""
+        """Com cache miss, deve agendar o incremento via BackgroundTasks."""
         mock_cache.get = AsyncMock(return_value=None)
         mock_repository.find_by_short_code = AsyncMock(return_value=sample_entity)
 
-        await use_case.execute("abc123")
+        await use_case.execute("abc123", background_tasks)
 
-        # Aguardar task assíncrona
-        await asyncio.sleep(0.01)
+        # Verificar que existe ao menos uma BackgroundTask agendada
+        assert len(background_tasks.tasks) >= 1
+
+    @pytest.mark.asyncio
+    async def test_redirect_cache_miss_executa_increment_no_banco(
+        self, use_case, mock_cache, mock_repository, sample_entity, background_tasks
+    ):
+        """Com cache miss, executar BackgroundTask incrementa no banco."""
+        mock_cache.get = AsyncMock(return_value=None)
+        mock_repository.find_by_short_code = AsyncMock(return_value=sample_entity)
+
+        await use_case.execute("abc123", background_tasks)
+
+        # Executar as background tasks manualmente
+        for task in background_tasks.tasks:
+            await task()
+
         mock_repository.increment_click_count.assert_called_once_with("abc123")
 
     # --- Cenário C: Slug inválido ---
 
     @pytest.mark.asyncio
-    async def test_slug_invalido_levanta_value_error(self, use_case, mock_cache, mock_repository):
+    async def test_slug_invalido_levanta_value_error(
+        self, use_case, mock_cache, mock_repository, background_tasks
+    ):
         """Slug não encontrado deve levantar ValueError."""
         mock_cache.get = AsyncMock(return_value=None)
         mock_repository.find_by_short_code = AsyncMock(return_value=None)
 
         with pytest.raises(ValueError, match="não encontrado"):
-            await use_case.execute("invalido")
+            await use_case.execute("invalido", background_tasks)
 
-    # --- Cenário D: Graceful degradation Redis ---
+    @pytest.mark.asyncio
+    async def test_slug_invalido_nao_agenda_background_task(
+        self, use_case, mock_cache, mock_repository, background_tasks
+    ):
+        """Slug não encontrado não deve agendar nenhuma BackgroundTask."""
+        mock_cache.get = AsyncMock(return_value=None)
+        mock_repository.find_by_short_code = AsyncMock(return_value=None)
+
+        with pytest.raises(ValueError):
+            await use_case.execute("invalido", background_tasks)
+
+        assert len(background_tasks.tasks) == 0
+
+    # --- Cenário D: Graceful degradation ---
 
     @pytest.mark.asyncio
     async def test_falha_banco_increment_nao_bloqueia_redirect(
-        self, use_case, mock_cache, mock_repository, caplog
+        self, use_case, mock_cache, mock_repository, background_tasks, caplog
     ):
         """Falha no banco ao incrementar clique não deve bloquear o redirect."""
         mock_cache.get = AsyncMock(return_value="https://example.com")
         mock_repository.increment_click_count = AsyncMock(side_effect=Exception("DB indisponível"))
 
         with caplog.at_level(logging.ERROR):
-            result = await use_case.execute("abc123")
-
-        # Aguardar task assíncrona
-        await asyncio.sleep(0.01)
+            result = await use_case.execute("abc123", background_tasks)
 
         # Redirect deve ocorrer normalmente
         assert result == "https://example.com"
 
     @pytest.mark.asyncio
     async def test_falha_banco_increment_loga_error(
-        self, use_case, mock_cache, mock_repository, caplog
+        self, use_case, mock_cache, mock_repository, background_tasks, caplog
     ):
         """Falha no banco ao incrementar clique deve ser logada como ERROR."""
         mock_cache.get = AsyncMock(return_value="https://example.com")
         mock_repository.increment_click_count = AsyncMock(side_effect=Exception("DB indisponível"))
 
         with caplog.at_level(logging.ERROR):
-            await use_case.execute("abc123")
-            await asyncio.sleep(0.01)  # Aguardar task assíncrona
+            await use_case.execute("abc123", background_tasks)
+            # Executar as background tasks para disparar o erro
+            for task in background_tasks.tasks:
+                await task()
 
         # Verificar que existe ao menos um registro de ERROR no log
         error_records = [record for record in caplog.records if record.levelno >= logging.ERROR]
@@ -171,7 +219,7 @@ class TestRedirectUrlUseCaseWithClickCount:
 
     @pytest.mark.asyncio
     async def test_falha_repositorio_increment_loga_error(
-        self, use_case, mock_cache, mock_repository, sample_entity, caplog
+        self, use_case, mock_cache, mock_repository, sample_entity, background_tasks, caplog
     ):
         """Falha no repositório ao persistir clique deve ser logada como ERROR."""
         mock_cache.get = AsyncMock(return_value=None)
@@ -179,11 +227,41 @@ class TestRedirectUrlUseCaseWithClickCount:
         mock_repository.increment_click_count = AsyncMock(side_effect=Exception("DB falhou"))
 
         with caplog.at_level(logging.ERROR):
-            result = await use_case.execute("abc123")
-            await asyncio.sleep(0.01)  # Aguardar task assíncrona
+            result = await use_case.execute("abc123", background_tasks)
+            # Executar as background tasks para disparar o erro
+            for task in background_tasks.tasks:
+                await task()
 
         # Redirect deve ocorrer normalmente
         assert result == "https://example.com"
+
+    @pytest.mark.asyncio
+    async def test_falha_redis_nao_bloqueia_redirect(
+        self, use_case, mock_cache, mock_repository, sample_entity, background_tasks, caplog
+    ):
+        """Falha no Redis deve gerar WARNING mas não bloquear o redirect."""
+        mock_cache.get = AsyncMock(side_effect=Exception("Redis indisponível"))
+        mock_repository.find_by_short_code = AsyncMock(return_value=sample_entity)
+
+        with caplog.at_level(logging.WARNING):
+            result = await use_case.execute("abc123", background_tasks)
+
+        # Redirect deve ocorrer normalmente (fallback para banco)
+        assert result == "https://example.com"
+
+    @pytest.mark.asyncio
+    async def test_falha_redis_loga_warning(
+        self, use_case, mock_cache, mock_repository, sample_entity, background_tasks, caplog
+    ):
+        """Falha no Redis deve gerar log de WARNING."""
+        mock_cache.get = AsyncMock(side_effect=Exception("Redis indisponível"))
+        mock_repository.find_by_short_code = AsyncMock(return_value=sample_entity)
+
+        with caplog.at_level(logging.WARNING):
+            await use_case.execute("abc123", background_tasks)
+
+        warning_records = [record for record in caplog.records if record.levelno >= logging.WARNING]
+        assert len(warning_records) > 0, "Esperava ao menos um log de WARNING"
 
 
 class TestShortenedUrlEntityWithClickCount:

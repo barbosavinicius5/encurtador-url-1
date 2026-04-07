@@ -107,6 +107,7 @@ async function shortenUrl(url) {
   const response = await fetch(`${API_BASE_URL}/api/shorten`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ url }),
   });
 

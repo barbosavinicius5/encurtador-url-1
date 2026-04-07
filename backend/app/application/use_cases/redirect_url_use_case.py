@@ -1,7 +1,8 @@
 """Use case para redirect de short_code para URL original."""
 
-import asyncio
 import logging
+
+from fastapi import BackgroundTasks
 
 from app.domain.ports.url_repository_port import UrlRepositoryPort
 from app.infrastructure.cache.redis_client import RedisClient
@@ -16,15 +17,17 @@ class RedirectUrlUseCase:
         self.repository = repository
         self.cache = cache
 
-    async def execute(self, short_code: str) -> str:
+    async def execute(self, short_code: str, background_tasks: BackgroundTasks) -> str:
         """Retorna a URL original para um short_code.
 
         Tenta o cache Redis primeiro; se não encontrar, busca no banco
-        e popula o cache. Incrementa o click_count no banco de forma atômica
-        (fire-and-forget) sem bloquear o redirect.
+        e popula o cache. Incrementa o click_count no banco de forma assíncrona
+        via BackgroundTask do FastAPI, sem bloquear o redirect.
 
         Args:
             short_code: Código do link encurtado.
+            background_tasks: Instância de BackgroundTasks do FastAPI para
+                agendar a persistência do clique sem bloquear a resposta.
 
         Returns:
             URL original.
@@ -42,8 +45,8 @@ class RedirectUrlUseCase:
                     "Redirect via cache Redis",
                     extra={"short_code": short_code, "cache_hit": True},
                 )
-                # Incrementar click_count no banco de forma atômica (não-bloqueante)
-                asyncio.create_task(self._persist_click(short_code))
+                # Persistência assíncrona no banco via BackgroundTask (não-bloqueante)
+                background_tasks.add_task(self._persist_click, short_code)
                 return cached_url
         except Exception as e:
             logger.warning(
@@ -70,8 +73,8 @@ class RedirectUrlUseCase:
             extra={"short_code": short_code, "cache_hit": False},
         )
 
-        # Incrementar click_count no banco de forma atômica (não-bloqueante)
-        asyncio.create_task(self._persist_click(short_code))
+        # Persistência assíncrona no banco via BackgroundTask (não-bloqueante)
+        background_tasks.add_task(self._persist_click, short_code)
 
         return entity.original_url
 
