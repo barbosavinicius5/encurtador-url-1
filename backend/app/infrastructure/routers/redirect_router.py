@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.responses import Response
 
@@ -61,15 +61,17 @@ async def health_check() -> dict:
 )
 async def redirect_short_code(
     short_code: str,
+    background_tasks: BackgroundTasks,
     use_case: RedirectUrlUseCase = Depends(get_redirect_use_case),
 ) -> Response:
     """Redireciona um short_code para a URL original.
 
-    Registra o clique de forma assíncrona (fire-and-forget) via Redis
+    Registra o clique de forma assíncrona via BackgroundTask do FastAPI
     sem bloquear a resposta de redirect.
 
     Args:
         short_code: Identificador único do link encurtado.
+        background_tasks: Instância de BackgroundTasks injetada pelo FastAPI.
         use_case: Use case injetado pelo container de DI.
 
     Returns:
@@ -77,7 +79,7 @@ async def redirect_short_code(
         HTMLResponse HTTP 404 se o slug não existir.
     """
     try:
-        original_url = await use_case.execute(short_code)
+        original_url = await use_case.execute(short_code, background_tasks)
         logger.info(
             "Redirect executado",
             extra={"short_code": short_code},
