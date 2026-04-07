@@ -86,12 +86,15 @@ function clearErrors() {
 
 /**
  * Exibe o resultado com o link curto gerado.
+ * Limpa erros anteriores ao exibir o resultado (critério de aceite A).
  * @param {string} shortUrl
  */
 function showResult(shortUrl) {
   shortUrlDisplay.textContent = shortUrl;
   shortUrlDisplay.href = shortUrl;
   resultSection.hidden = false;
+  // Ocultar área de erro quando há resultado bem-sucedido
+  clearErrors();
 }
 
 // ————————————————————————————————————————————————————
