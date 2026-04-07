@@ -19,6 +19,8 @@ def _get_engine():
             settings.database_url,
             echo=settings.environment == "development",
             pool_pre_ping=True,
+            pool_size=20,
+            max_overflow=30,
         )
     return _engine
 
@@ -35,6 +37,11 @@ def _get_session_factory():
             autocommit=False,
         )
     return _AsyncSessionLocal
+
+
+def get_session_factory() -> async_sessionmaker:
+    """Retorna a session factory para uso em background tasks."""
+    return _get_session_factory()
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

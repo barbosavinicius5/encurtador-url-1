@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     # blocked_domains é armazenado como string CSV para compatibilidade com pydantic-settings v2
     # Use a propriedade blocked_domains_list para obter a lista parseada
     blocked_domains_csv: str = ""
+    cache_ttl_seconds: int = 3600  # TTL do cache de redirecionamento (segundos)
 
     @property
     def blocked_domains(self) -> list[str]:

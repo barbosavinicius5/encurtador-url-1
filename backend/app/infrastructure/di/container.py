@@ -11,7 +11,7 @@ from app.config import Settings, get_settings
 from app.infrastructure.cache.redis_client import RedisClient
 from app.infrastructure.db.repositories.api_key_repository import PostgreSQLApiKeyRepository
 from app.infrastructure.db.repositories.url_repository import PostgreSQLUrlRepository
-from app.infrastructure.db.session import get_session
+from app.infrastructure.db.session import get_session, get_session_factory
 
 
 async def get_redis_client(
@@ -44,7 +44,12 @@ async def get_redirect_use_case(
 ) -> RedirectUrlUseCase:
     """Dependency que fornece o use case de redirect configurado."""
     repository = PostgreSQLUrlRepository(session)
-    return RedirectUrlUseCase(repository=repository, cache=cache)
+    return RedirectUrlUseCase(
+        repository=repository,
+        cache=cache,
+        cache_ttl_seconds=settings.cache_ttl_seconds,
+        session_factory=get_session_factory(),
+    )
 
 
 async def get_list_links_use_case(
