@@ -1,6 +1,6 @@
 """Modelos ORM SQLAlchemy para o banco de dados."""
 
-from sqlalchemy import Column, DateTime, Index, Integer, String, func
+from sqlalchemy import Boolean, Column, DateTime, Index, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -24,3 +24,17 @@ class ShortenedUrlModel(Base):
     session_id = Column(String(36), nullable=True, index=True)
 
     __table_args__ = (Index("ix_shortened_urls_session_id", "session_id"),)
+
+
+class ApiKeyModel(Base):
+    """Modelo ORM para chaves de acesso à API."""
+
+    __tablename__ = "api_keys"
+
+    id = Column(String, primary_key=True)
+    key = Column(String, nullable=False, unique=True, index=True)
+    owner = Column(String, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="true")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (Index("ix_api_keys_key", "key"),)

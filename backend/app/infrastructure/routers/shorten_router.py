@@ -7,11 +7,12 @@ from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies.api_key_auth import api_key_auth
 from app.application.dtos.shorten_url_dto import ShortenUrlRequest, ShortenUrlResponse
 from app.application.use_cases.shorten_url_use_case import ShortenUrlUseCase
 from app.config import Settings, get_settings
+from app.domain.entities.api_key import ApiKey
 from app.infrastructure.db.session import get_session
-from app.infrastructure.middleware.rate_limiter import rate_limit_by_ip
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +41,35 @@ async def _get_use_case(
     response_model=ShortenUrlResponse,
     status_code=201,
     summary="Encurtar URL",
-    description="Encurta uma URL longa e retorna o link curto.",
-    dependencies=[Depends(rate_limit_by_ip)],
+    description=(
+        "Encurta uma URL longa e retorna o link curto. "
+        "Requer autenticação via header **X-API-Key**. "
+        "Limite de 60 requisições por minuto por chave de API."
+    ),
+    responses={
+        201: {
+            "description": "URL encurtada com sucesso",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "short_code": "abc123",
+                        "short_url": "https://short.app/abc123",
+                        "original_url": "https://www.exemplo.com/pagina-muito-longa",
+                    }
+                }
+            },
+        },
+        401: {"description": "API key ausente ou inválida"},
+        422: {"description": "URL inválida ou malformada"},
+        429: {"description": "Rate limit excedido"},
+    },
 )
 async def shorten_url(
     request: ShortenUrlRequest,
     response: Response,
     session_id: Optional[str] = Cookie(default=None),
     use_case: ShortenUrlUseCase = Depends(_get_use_case),
+    _auth: ApiKey = Depends(api_key_auth),
 ) -> ShortenUrlResponse:
     """Encurta uma URL e retorna o link curto.
 

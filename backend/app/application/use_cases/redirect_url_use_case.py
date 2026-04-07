@@ -20,8 +20,8 @@ class RedirectUrlUseCase:
         """Retorna a URL original para um short_code.
 
         Tenta o cache Redis primeiro; se não encontrar, busca no banco
-        e popula o cache. Registra o clique de forma assíncrona (fire-and-forget)
-        via Redis sem bloquear o redirect.
+        e popula o cache. Incrementa o click_count no banco de forma atômica
+        (fire-and-forget) sem bloquear o redirect.
 
         Args:
             short_code: Código do link encurtado.
@@ -42,8 +42,8 @@ class RedirectUrlUseCase:
                     "Redirect via cache Redis",
                     extra={"short_code": short_code, "cache_hit": True},
                 )
-                # Fire-and-forget: registrar clique de forma assíncrona
-                asyncio.create_task(self._register_click_async(short_code))
+                # Incrementar click_count no banco de forma atômica (não-bloqueante)
+                asyncio.create_task(self._persist_click(short_code))
                 return cached_url
         except Exception as e:
             logger.warning(
@@ -70,30 +70,13 @@ class RedirectUrlUseCase:
             extra={"short_code": short_code, "cache_hit": False},
         )
 
-        # Fire-and-forget: registrar clique de forma assíncrona
-        asyncio.create_task(self._register_click_async(short_code))
+        # Incrementar click_count no banco de forma atômica (não-bloqueante)
+        asyncio.create_task(self._persist_click(short_code))
 
         return entity.original_url
 
-    async def _register_click_async(self, short_code: str) -> None:
-        """Registra um clique de forma assíncrona via Redis.
-
-        Falhas são silenciadas e logadas como WARNING — não devem
-        impactar o redirect principal.
-
-        Args:
-            short_code: Código do link encurtado que recebeu o clique.
-        """
-        try:
-            await self.cache.increment_with_ttl(f"clicks:{short_code}", ttl_seconds=3600)
-        except Exception as e:
-            logger.warning(
-                "Falha ao registrar clique no Redis",
-                extra={"short_code": short_code, "error": str(e)},
-            )
-
     async def _persist_click(self, short_code: str) -> None:
-        """Persiste o clique no banco de dados.
+        """Persiste o clique no banco de dados atomicamente.
 
         Falhas são silenciadas e logadas como ERROR — não devem
         impactar o redirect principal.

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     rate_limit_requests: int = 10
     rate_limit_window_seconds: int = 60
+    api_rate_limit_requests: int = 60
 
 
 @lru_cache

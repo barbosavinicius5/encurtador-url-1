@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.api.dependencies.api_key_auth import api_key_auth
+from app.domain.entities.api_key import ApiKey
 from app.domain.entities.shortened_url import ShortenedUrl
 from app.main import create_app
 
@@ -19,6 +21,10 @@ def app():
 async def client(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
+
+
+def _make_valid_api_key() -> ApiKey:
+    return ApiKey(id="test-id", key="valid-key", owner="test", is_active=True)
 
 
 def make_entity(short_code: str, session_id: str, click_count: int = 0) -> ShortenedUrl:
@@ -131,30 +137,9 @@ class TestShortenEndpointWithSession:
     """Testes de integração para o comportamento de sessão no POST /api/shorten."""
 
     @pytest.mark.asyncio
-    async def test_sem_cookie_gera_novo_session_id(self, client):
+    async def test_sem_cookie_gera_novo_session_id(self, app, client):
         """POST /api/shorten sem cookie deve gerar um novo session_id e setá-lo."""
-        with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
-            mock_use_case = AsyncMock()
-            mock_use_case.execute = AsyncMock(
-                return_value=MagicMock(
-                    short_code="aB3kZ9",
-                    short_url="https://short.app/aB3kZ9",
-                    original_url="https://exemplo.com",
-                )
-            )
-            mock_dep.return_value = mock_use_case
-
-            response = await client.post("/api/shorten", json={"url": "https://exemplo.com"})
-
-        assert response.status_code == 201
-        # Deve ter setado o cookie session_id
-        assert "session_id" in response.cookies
-
-    @pytest.mark.asyncio
-    async def test_com_cookie_nao_gera_novo_session_id(self, client):
-        """POST /api/shorten com cookie existente não deve alterar o cookie."""
-        existing_session = "550e8400-e29b-41d4-a716-446655440000"
-
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
             mock_use_case = AsyncMock()
             mock_use_case.execute = AsyncMock(
@@ -169,8 +154,38 @@ class TestShortenEndpointWithSession:
             response = await client.post(
                 "/api/shorten",
                 json={"url": "https://exemplo.com"},
+                headers={"X-API-Key": "valid-key"},
+            )
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 201
+        # Deve ter setado o cookie session_id
+        assert "session_id" in response.cookies
+
+    @pytest.mark.asyncio
+    async def test_com_cookie_nao_gera_novo_session_id(self, app, client):
+        """POST /api/shorten com cookie existente não deve alterar o cookie."""
+        existing_session = "550e8400-e29b-41d4-a716-446655440000"
+
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
+            mock_use_case = AsyncMock()
+            mock_use_case.execute = AsyncMock(
+                return_value=MagicMock(
+                    short_code="aB3kZ9",
+                    short_url="https://short.app/aB3kZ9",
+                    original_url="https://exemplo.com",
+                )
+            )
+            mock_dep.return_value = mock_use_case
+
+            response = await client.post(
+                "/api/shorten",
+                json={"url": "https://exemplo.com"},
+                headers={"X-API-Key": "valid-key"},
                 cookies={"session_id": existing_session},
             )
+        app.dependency_overrides.clear()
 
         assert response.status_code == 201
         # NÃO deve ter setado novo cookie (ou o valor deve ser o mesmo)
@@ -178,10 +193,11 @@ class TestShortenEndpointWithSession:
             assert response.cookies["session_id"] == existing_session
 
     @pytest.mark.asyncio
-    async def test_session_id_e_passado_ao_use_case(self, client):
+    async def test_session_id_e_passado_ao_use_case(self, app, client):
         """POST /api/shorten deve passar o session_id ao use case."""
         existing_session = "550e8400-e29b-41d4-a716-446655440000"
 
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
             mock_use_case = AsyncMock()
             mock_use_case.execute = AsyncMock(
@@ -196,8 +212,10 @@ class TestShortenEndpointWithSession:
             await client.post(
                 "/api/shorten",
                 json={"url": "https://exemplo.com"},
+                headers={"X-API-Key": "valid-key"},
                 cookies={"session_id": existing_session},
             )
+        app.dependency_overrides.clear()
 
         # Verifica que o session_id foi passado ao execute
         mock_use_case.execute.assert_called_once()

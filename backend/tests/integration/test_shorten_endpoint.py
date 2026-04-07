@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.api.dependencies.api_key_auth import api_key_auth
+from app.domain.entities.api_key import ApiKey
 from app.main import create_app
 
 
@@ -19,11 +21,16 @@ async def client(app):
         yield ac
 
 
+def _make_valid_api_key() -> ApiKey:
+    return ApiKey(id="test-id", key="valid-key", owner="test", is_active=True)
+
+
 class TestShortenEndpoint:
     """Testes de integração para o endpoint de encurtamento."""
 
     @pytest.mark.asyncio
-    async def test_post_url_valida_retorna_201(self, client):
+    async def test_post_url_valida_retorna_201(self, app, client):
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
             mock_use_case = AsyncMock()
             mock_use_case.execute = AsyncMock(
@@ -36,8 +43,11 @@ class TestShortenEndpoint:
             mock_dep.return_value = mock_use_case
 
             response = await client.post(
-                "/api/shorten", json={"url": "https://exemplo.com/pagina-longa"}
+                "/api/shorten",
+                json={"url": "https://exemplo.com/pagina-longa"},
+                headers={"X-API-Key": "valid-key"},
             )
+        app.dependency_overrides.clear()
 
         assert response.status_code == 201
         data = response.json()
@@ -46,22 +56,41 @@ class TestShortenEndpoint:
         assert "original_url" in data
 
     @pytest.mark.asyncio
-    async def test_post_url_invalida_retorna_422(self, client):
-        response = await client.post("/api/shorten", json={"url": "nao-e-uma-url"})
+    async def test_post_url_invalida_retorna_422(self, app, client):
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        response = await client.post(
+            "/api/shorten",
+            json={"url": "nao-e-uma-url"},
+            headers={"X-API-Key": "valid-key"},
+        )
+        app.dependency_overrides.clear()
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_post_url_vazia_retorna_422(self, client):
-        response = await client.post("/api/shorten", json={"url": ""})
+    async def test_post_url_vazia_retorna_422(self, app, client):
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        response = await client.post(
+            "/api/shorten",
+            json={"url": ""},
+            headers={"X-API-Key": "valid-key"},
+        )
+        app.dependency_overrides.clear()
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_post_sem_protocolo_retorna_422(self, client):
-        response = await client.post("/api/shorten", json={"url": "exemplo.com/pagina"})
+    async def test_post_sem_protocolo_retorna_422(self, app, client):
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        response = await client.post(
+            "/api/shorten",
+            json={"url": "exemplo.com/pagina"},
+            headers={"X-API-Key": "valid-key"},
+        )
+        app.dependency_overrides.clear()
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_response_short_code_tem_minimo_5_chars(self, client):
+    async def test_response_short_code_tem_minimo_5_chars(self, app, client):
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
             mock_use_case = AsyncMock()
             mock_use_case.execute = AsyncMock(
@@ -73,14 +102,20 @@ class TestShortenEndpoint:
             )
             mock_dep.return_value = mock_use_case
 
-            response = await client.post("/api/shorten", json={"url": "https://exemplo.com"})
+            response = await client.post(
+                "/api/shorten",
+                json={"url": "https://exemplo.com"},
+                headers={"X-API-Key": "valid-key"},
+            )
+        app.dependency_overrides.clear()
 
         assert response.status_code == 201
         data = response.json()
         assert len(data["short_code"]) >= 5
 
     @pytest.mark.asyncio
-    async def test_response_short_url_comeca_com_https(self, client):
+    async def test_response_short_url_comeca_com_https(self, app, client):
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
             mock_use_case = AsyncMock()
             mock_use_case.execute = AsyncMock(
@@ -92,7 +127,12 @@ class TestShortenEndpoint:
             )
             mock_dep.return_value = mock_use_case
 
-            response = await client.post("/api/shorten", json={"url": "https://exemplo.com"})
+            response = await client.post(
+                "/api/shorten",
+                json={"url": "https://exemplo.com"},
+                headers={"X-API-Key": "valid-key"},
+            )
+        app.dependency_overrides.clear()
 
         assert response.status_code == 201
         data = response.json()

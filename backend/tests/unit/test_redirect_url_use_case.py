@@ -63,15 +63,17 @@ class TestRedirectUrlUseCaseWithClickCount:
         mock_repository.find_by_short_code.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_redirect_cache_hit_chama_increment_redis(self, use_case, mock_cache):
-        """Com cache hit, o Redis deve ser chamado para incrementar o clique."""
+    async def test_redirect_cache_hit_chama_increment_banco(
+        self, use_case, mock_cache, mock_repository
+    ):
+        """Com cache hit, o banco deve ser chamado para incrementar o clique."""
         mock_cache.get = AsyncMock(return_value="https://example.com")
 
         await use_case.execute("abc123")
 
         # Aguardar task assíncrona
-        await asyncio.sleep(0)
-        mock_cache.increment_with_ttl.assert_called_once_with("clicks:abc123", ttl_seconds=3600)
+        await asyncio.sleep(0.01)
+        mock_repository.increment_click_count.assert_called_once_with("abc123")
 
     # --- Cenário B: Cache miss ---
 
@@ -106,15 +108,15 @@ class TestRedirectUrlUseCaseWithClickCount:
     async def test_redirect_cache_miss_agenda_increment_click(
         self, use_case, mock_cache, mock_repository, sample_entity
     ):
-        """Com cache miss, o clique deve ser registrado de forma assíncrona."""
+        """Com cache miss, o clique deve ser registrado no banco de forma assíncrona."""
         mock_cache.get = AsyncMock(return_value=None)
         mock_repository.find_by_short_code = AsyncMock(return_value=sample_entity)
 
         await use_case.execute("abc123")
 
         # Aguardar task assíncrona
-        await asyncio.sleep(0)
-        mock_cache.increment_with_ttl.assert_called_once_with("clicks:abc123", ttl_seconds=3600)
+        await asyncio.sleep(0.01)
+        mock_repository.increment_click_count.assert_called_once_with("abc123")
 
     # --- Cenário C: Slug inválido ---
 
@@ -130,37 +132,41 @@ class TestRedirectUrlUseCaseWithClickCount:
     # --- Cenário D: Graceful degradation Redis ---
 
     @pytest.mark.asyncio
-    async def test_falha_redis_increment_nao_bloqueia_redirect(self, use_case, mock_cache, caplog):
-        """Falha no Redis ao incrementar clique não deve bloquear o redirect."""
+    async def test_falha_banco_increment_nao_bloqueia_redirect(
+        self, use_case, mock_cache, mock_repository, caplog
+    ):
+        """Falha no banco ao incrementar clique não deve bloquear o redirect."""
         mock_cache.get = AsyncMock(return_value="https://example.com")
-        mock_cache.increment_with_ttl = AsyncMock(side_effect=ConnectionError("Redis indisponível"))
+        mock_repository.increment_click_count = AsyncMock(side_effect=Exception("DB indisponível"))
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.ERROR):
             result = await use_case.execute("abc123")
 
         # Aguardar task assíncrona
-        await asyncio.sleep(0)
+        await asyncio.sleep(0.01)
 
         # Redirect deve ocorrer normalmente
         assert result == "https://example.com"
 
     @pytest.mark.asyncio
-    async def test_falha_redis_increment_loga_warning(self, use_case, mock_cache, caplog):
-        """Falha no Redis deve ser logada como WARNING."""
+    async def test_falha_banco_increment_loga_error(
+        self, use_case, mock_cache, mock_repository, caplog
+    ):
+        """Falha no banco ao incrementar clique deve ser logada como ERROR."""
         mock_cache.get = AsyncMock(return_value="https://example.com")
-        mock_cache.increment_with_ttl = AsyncMock(side_effect=ConnectionError("Redis indisponível"))
+        mock_repository.increment_click_count = AsyncMock(side_effect=Exception("DB indisponível"))
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.ERROR):
             await use_case.execute("abc123")
             await asyncio.sleep(0.01)  # Aguardar task assíncrona
 
-        # Verificar que existe ao menos um registro de WARNING no log
-        warning_records = [record for record in caplog.records if record.levelno >= logging.WARNING]
-        assert len(warning_records) > 0, "Esperava ao menos um log de WARNING"
-        # Verificar que a mensagem de erro é sobre o Redis
+        # Verificar que existe ao menos um registro de ERROR no log
+        error_records = [record for record in caplog.records if record.levelno >= logging.ERROR]
+        assert len(error_records) > 0, "Esperava ao menos um log de ERROR"
+        # Verificar que a mensagem de erro é sobre falha ao persistir
         assert any(
-            "redis" in record.getMessage().lower() or "clique" in record.getMessage().lower()
-            for record in warning_records
+            "clique" in record.getMessage().lower() or "persistir" in record.getMessage().lower()
+            for record in error_records
         )
 
     @pytest.mark.asyncio

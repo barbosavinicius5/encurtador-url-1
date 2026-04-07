@@ -1,4 +1,4 @@
-"""Middleware de rate limiting por IP usando Redis."""
+"""Middleware de rate limiting por IP ou API Key usando Redis."""
 
 import logging
 
@@ -58,4 +58,57 @@ async def rate_limit_by_ip(
         logger.warning(
             "Redis indisponível no rate limiter — fail open",
             extra={"ip": client_ip, "error": str(e)},
+        )
+
+
+async def rate_limit_by_api_key(
+    api_key_value: str,
+    settings: Settings,
+) -> None:
+    """Aplica rate limiting por API Key.
+
+    Implementa sliding window simplificado usando Redis INCR + EXPIRE.
+    Comportamento fail-open: se Redis estiver indisponível, permite a requisição.
+    Limite de 60 req/min por API Key.
+
+    Args:
+        api_key_value: Valor da API Key extraído do header.
+        settings: Configurações da aplicação.
+
+    Raises:
+        HTTPException 429: Se a API Key ultrapassou o limite de requisições.
+    """
+    # Usar prefixo da key para não expor o valor completo nos logs
+    key_prefix = api_key_value[:8] if len(api_key_value) >= 8 else api_key_value
+    redis_key = f"rate_limit:apikey:{api_key_value}"
+
+    try:
+        redis_client = RedisClient(settings)
+        count = await redis_client.increment_with_ttl(
+            redis_key,
+            ttl_seconds=settings.rate_limit_window_seconds,
+        )
+        await redis_client.close()
+
+        if count > settings.api_rate_limit_requests:
+            logger.warning(
+                "Rate limit por API Key atingido",
+                extra={
+                    "key_prefix": key_prefix,
+                    "count": count,
+                    "limit": settings.api_rate_limit_requests,
+                },
+            )
+            raise HTTPException(
+                status_code=429,
+                detail=f"Rate limit excedido. Tente novamente em {settings.rate_limit_window_seconds} segundos.",
+                headers={"Retry-After": str(settings.rate_limit_window_seconds)},
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Fail-open: se Redis estiver indisponível, permite a requisição
+        logger.warning(
+            "Redis indisponível no rate limiter por API Key — fail open",
+            extra={"key_prefix": key_prefix, "error": str(e)},
         )
