@@ -61,7 +61,9 @@ class TestListLinksUseCase:
         assert len(result) == 2
         assert result[0].short_code == "abc123"
         assert result[1].short_code == "xyz987"
-        repo.find_by_session_id.assert_called_once_with(session_id)
+        repo.find_by_session_id.assert_called_once_with(
+            session_id, sort_by="created_at", sort_order="desc"
+        )
 
     @pytest.mark.asyncio
     async def test_retorna_lista_vazia_quando_sessao_nao_tem_links(self):
@@ -73,7 +75,9 @@ class TestListLinksUseCase:
         result = await use_case.execute(session_id="sessao-sem-links")
 
         assert result == []
-        repo.find_by_session_id.assert_called_once_with("sessao-sem-links")
+        repo.find_by_session_id.assert_called_once_with(
+            "sessao-sem-links", sort_by="created_at", sort_order="desc"
+        )
 
     @pytest.mark.asyncio
     async def test_repassa_session_id_ao_repositorio(self):
@@ -85,7 +89,9 @@ class TestListLinksUseCase:
         use_case = ListLinksUseCase(repository=repo)
         await use_case.execute(session_id=session_id)
 
-        repo.find_by_session_id.assert_called_once_with(session_id)
+        repo.find_by_session_id.assert_called_once_with(
+            session_id, sort_by="created_at", sort_order="desc"
+        )
 
     @pytest.mark.asyncio
     async def test_retorna_click_count_correto(self):

@@ -15,25 +15,40 @@ class ListLinksUseCase:
     def __init__(self, repository: UrlRepositoryPort):
         self.repository = repository
 
-    async def execute(self, session_id: Optional[str]) -> list[ShortenedUrl]:
+    async def execute(
+        self,
+        session_id: Optional[str],
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+    ) -> list[ShortenedUrl]:
         """Retorna todos os links associados ao session_id.
 
         Args:
             session_id: UUID da sessão anônima. Se None ou vazio, retorna lista vazia.
+            sort_by: Campo de ordenação. Valores aceitos: 'created_at', 'click_count'.
+                     Default: 'created_at'.
+            sort_order: Direção da ordenação. Valores aceitos: 'asc', 'desc'.
+                        Default: 'desc'.
 
         Returns:
-            Lista de entidades ShortenedUrl ordenadas por created_at DESC.
+            Lista de entidades ShortenedUrl ordenadas conforme os parâmetros.
         """
         if not session_id:
             logger.info("Listagem de links solicitada sem session_id — retornando lista vazia")
             return []
 
-        links = await self.repository.find_by_session_id(session_id)
+        links = await self.repository.find_by_session_id(
+            session_id,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
         logger.info(
             "Links listados por sessão",
             extra={
                 "session_id_prefix": session_id[:8] if len(session_id) >= 8 else session_id,
                 "count": len(links),
+                "sort_by": sort_by,
+                "sort_order": sort_order,
             },
         )
         return links
