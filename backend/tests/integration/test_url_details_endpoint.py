@@ -87,8 +87,9 @@ class TestUrlDetailsEndpoint:
 
         assert response.status_code == 404
         data = response.json()
-        assert "detail" in data
-        assert "não encontrada" in data["detail"].lower()
+        # Novo formato ErrorResponse (T002-BE)
+        assert data["error_type"] == "NOT_FOUND"
+        assert "não encontrada" in data["message"].lower()
 
     @pytest.mark.asyncio
     async def test_get_url_sem_api_key_retorna_401(self, client):

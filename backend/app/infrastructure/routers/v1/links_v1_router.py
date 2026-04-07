@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.dtos.error_response import ErrorResponse
 from app.application.dtos.link_list_dto import LinkItemResponse, LinkListResponse
 from app.application.use_cases.list_links_use_case import ListLinksUseCase
 from app.config import Settings, get_settings
@@ -36,6 +37,52 @@ async def _get_use_case(
     status_code=200,
     summary="Listar links da sessão",
     description="Retorna todos os links encurtados associados à sessão anônima do usuário.",
+    responses={
+        200: {
+            "description": "Lista de links da sessão.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "links": [
+                            {
+                                "short_code": "aB3kZ9",
+                                "original_url": "https://www.exemplo.com/pagina-longa",
+                                "short_url": "https://short.app/aB3kZ9",
+                                "click_count": 5,
+                                "created_at": "2025-01-31T00:00:00Z",
+                            }
+                        ]
+                    }
+                }
+            },
+        },
+        429: {
+            "model": ErrorResponse,
+            "description": "Rate limit excedido.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status_code": 429,
+                        "error_type": "RATE_LIMIT_EXCEEDED",
+                        "message": "Limite de requisições excedido. Tente novamente mais tarde.",
+                    }
+                }
+            },
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Erro interno do servidor.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status_code": 500,
+                        "error_type": "INTERNAL_ERROR",
+                        "message": "Erro interno do servidor.",
+                    }
+                }
+            },
+        },
+    },
 )
 async def list_links_v1(
     request: Request,

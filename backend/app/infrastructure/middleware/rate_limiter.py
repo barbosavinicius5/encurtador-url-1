@@ -69,7 +69,10 @@ async def rate_limit_by_ip(
             )
             raise HTTPException(
                 status_code=429,
-                detail="Limite de requisições atingido. Tente novamente em instantes.",
+                detail={
+                    "error_type": "RATE_LIMIT_EXCEEDED",
+                    "message": "Limite de requisições excedido. Tente novamente mais tarde.",
+                },
                 headers={"Retry-After": str(retry_after)},
             )
     except HTTPException:
@@ -124,7 +127,10 @@ async def rate_limit_by_api_key(
             )
             raise HTTPException(
                 status_code=429,
-                detail=f"Rate limit excedido. Tente novamente em {retry_after} segundos.",
+                detail={
+                    "error_type": "RATE_LIMIT_EXCEEDED",
+                    "message": "Limite de requisições excedido. Tente novamente mais tarde.",
+                },
                 headers={"Retry-After": str(retry_after)},
             )
     except HTTPException:

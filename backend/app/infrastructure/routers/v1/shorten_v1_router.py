@@ -12,6 +12,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.api_key_auth import api_key_auth
+from app.application.dtos.error_response import ErrorResponse
 from app.application.dtos.shorten_url_dto import ShortenUrlRequest, ShortenUrlResponse
 from app.application.use_cases.shorten_url_use_case import ShortenUrlUseCase
 from app.config import Settings, get_settings
@@ -48,21 +49,82 @@ async def _get_use_case(
     ),
     responses={
         201: {
-            "description": "URL encurtada com sucesso",
+            "description": "URL encurtada com sucesso.",
             "content": {
                 "application/json": {
                     "example": {
-                        "short_code": "abc123",
-                        "short_url": "https://short.app/abc123",
+                        "short_code": "aB3kZ9",
+                        "short_url": "https://short.app/aB3kZ9",
                         "original_url": "https://www.exemplo.com/pagina-muito-longa",
                     }
                 }
             },
         },
-        401: {"description": "API key ausente ou inválida"},
-        409: {"description": "Slug já em uso ou URL já encurtada nesta sessão"},
-        422: {"description": "URL inválida, malformada ou domínio bloqueado"},
-        429: {"description": "Rate limit excedido"},
+        401: {
+            "model": ErrorResponse,
+            "description": "API key ausente ou inválida.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status_code": 401,
+                        "error_type": "UNAUTHORIZED",
+                        "message": "API key ausente ou inválida.",
+                    }
+                }
+            },
+        },
+        409: {
+            "model": ErrorResponse,
+            "description": "Slug já em uso ou URL já encurtada nesta sessão.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status_code": 409,
+                        "error_type": "CONFLICT",
+                        "message": "Slug já em uso. Tente novamente.",
+                    }
+                }
+            },
+        },
+        422: {
+            "model": ErrorResponse,
+            "description": "URL inválida, malformada ou domínio bloqueado.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status_code": 422,
+                        "error_type": "VALIDATION_ERROR",
+                        "message": "Campo 'url': URL inválida ou não acessível.",
+                    }
+                }
+            },
+        },
+        429: {
+            "model": ErrorResponse,
+            "description": "Rate limit excedido.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status_code": 429,
+                        "error_type": "RATE_LIMIT_EXCEEDED",
+                        "message": "Limite de requisições excedido. Tente novamente mais tarde.",
+                    }
+                }
+            },
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Erro interno do servidor.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status_code": 500,
+                        "error_type": "INTERNAL_ERROR",
+                        "message": "Erro interno do servidor.",
+                    }
+                }
+            },
+        },
     },
 )
 async def shorten_url_v1(
@@ -104,21 +166,42 @@ async def shorten_url_v1(
         logger.warning("URL rejeitada por domínio malicioso")
         raise HTTPException(
             status_code=422,
-            detail="URL contém domínio bloqueado",
+            detail={
+                "error_type": "VALIDATION_ERROR",
+                "message": "URL contém domínio bloqueado.",
+            },
         )
     except InvalidUrlError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error_type": "VALIDATION_ERROR",
+                "message": str(e),
+            },
+        )
     except SlugCollisionError:
         logger.error("Esgotadas tentativas de geração de slug único", exc_info=True)
         raise HTTPException(
             status_code=409,
-            detail="slug already in use",
+            detail={
+                "error_type": "CONFLICT",
+                "message": "Slug já em uso. Tente novamente.",
+            },
         )
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error_type": "VALIDATION_ERROR",
+                "message": str(e),
+            },
+        )
     except Exception:
         logger.error("Erro ao encurtar URL", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail="Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            detail={
+                "error_type": "INTERNAL_ERROR",
+                "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            },
         )

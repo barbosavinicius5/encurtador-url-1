@@ -52,8 +52,10 @@ class TestApiKeyAuth:
 
         assert response.status_code == 401
         data = response.json()
-        assert "detail" in data
-        assert "inválida" in data["detail"].lower() or "inativa" in data["detail"].lower()
+        # Formato ErrorResponse (T002-BE): status_code, error_type, message
+        assert data["status_code"] == 401
+        assert data["error_type"] == "UNAUTHORIZED"
+        assert "message" in data
 
     @pytest.mark.asyncio
     async def test_api_key_invalida_retorna_401(self, app, client):
@@ -72,7 +74,10 @@ class TestApiKeyAuth:
 
         assert response.status_code == 401
         data = response.json()
-        assert "detail" in data
+        # Formato ErrorResponse (T002-BE): status_code, error_type, message
+        assert data["status_code"] == 401
+        assert data["error_type"] == "UNAUTHORIZED"
+        assert "detail" not in data
 
     @pytest.mark.asyncio
     async def test_api_key_inativa_retorna_401(self, app, client):
@@ -133,7 +138,10 @@ class TestApiKeyAuth:
 
             raise HTTPException(
                 status_code=429,
-                detail="Rate limit excedido. Tente novamente em 60 segundos.",
+                detail={
+                    "error_type": "RATE_LIMIT_EXCEEDED",
+                    "message": "Limite de requisições excedido. Tente novamente mais tarde.",
+                },
                 headers={"Retry-After": "60"},
             )
 
@@ -154,8 +162,11 @@ class TestApiKeyAuth:
         assert response.status_code == 429
         assert "Retry-After" in response.headers
         data = response.json()
-        assert "detail" in data
-        assert "rate limit" in data["detail"].lower() or "limit" in data["detail"].lower()
+        # Formato ErrorResponse (T002-BE): status_code, error_type, message
+        assert data["status_code"] == 429
+        assert data["error_type"] == "RATE_LIMIT_EXCEEDED"
+        assert "message" in data
+        assert "detail" not in data
 
     @pytest.mark.asyncio
     async def test_rate_limit_contagem_por_api_key_nao_por_ip(self, app, client):

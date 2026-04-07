@@ -51,7 +51,9 @@ class TestShortenEndpointDomainErrors:
 
         assert response.status_code == 422
         data = response.json()
-        assert "detail" in data
+        # Novo formato ErrorResponse (T002-BE)
+        assert data["error_type"] == "VALIDATION_ERROR"
+        assert data["status_code"] == 422
 
     @pytest.mark.asyncio
     async def test_dominio_malicioso_retorna_422_com_mensagem(self, app, client):
@@ -73,7 +75,9 @@ class TestShortenEndpointDomainErrors:
 
         assert response.status_code == 422
         data = response.json()
-        assert data["detail"] == "URL contém domínio bloqueado"
+        # Novo formato ErrorResponse (T002-BE)
+        assert data["error_type"] == "VALIDATION_ERROR"
+        assert "bloqueado" in data["message"].lower()
 
     @pytest.mark.asyncio
     async def test_slug_colisao_retorna_409(self, app, client):
@@ -93,7 +97,9 @@ class TestShortenEndpointDomainErrors:
 
         assert response.status_code == 409
         data = response.json()
-        assert data["detail"] == "slug already in use"
+        # Novo formato ErrorResponse (T002-BE)
+        assert data["error_type"] == "CONFLICT"
+        assert data["status_code"] == 409
 
     @pytest.mark.asyncio
     async def test_url_valida_retorna_201(self, app, client):

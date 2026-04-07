@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.api_key_auth import api_key_auth
+from app.application.dtos.error_response import ErrorResponse
 from app.application.dtos.get_url_details_dto import GetUrlDetailsResponse
 from app.application.use_cases.get_url_details_use_case import (
     GetUrlDetailsUseCase,
@@ -45,21 +46,70 @@ async def get_url_details_use_case_dep(
     ),
     responses={
         200: {
-            "description": "Detalhes da URL encontrada",
+            "description": "Detalhes da URL encontrada.",
             "content": {
                 "application/json": {
                     "example": {
                         "original_url": "https://www.exemplo.com/minha-pagina-muito-longa",
-                        "short_code": "abc123",
-                        "short_url": "https://short.app/abc123",
+                        "short_code": "aB3kZ9",
+                        "short_url": "https://short.app/aB3kZ9",
                         "click_count": 42,
                     }
                 }
             },
         },
-        401: {"description": "API key ausente ou inválida"},
-        404: {"description": "URL não encontrada"},
-        429: {"description": "Rate limit excedido"},
+        401: {
+            "model": ErrorResponse,
+            "description": "API key ausente ou inválida.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status_code": 401,
+                        "error_type": "UNAUTHORIZED",
+                        "message": "API key ausente ou inválida.",
+                    }
+                }
+            },
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "URL encurtada não encontrada.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status_code": 404,
+                        "error_type": "NOT_FOUND",
+                        "message": "URL encurtada não encontrada.",
+                    }
+                }
+            },
+        },
+        429: {
+            "model": ErrorResponse,
+            "description": "Rate limit excedido.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status_code": 429,
+                        "error_type": "RATE_LIMIT_EXCEEDED",
+                        "message": "Limite de requisições excedido. Tente novamente mais tarde.",
+                    }
+                }
+            },
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Erro interno do servidor.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status_code": 500,
+                        "error_type": "INTERNAL_ERROR",
+                        "message": "Erro interno do servidor.",
+                    }
+                }
+            },
+        },
     },
 )
 async def get_url_details_v1(
@@ -81,4 +131,10 @@ async def get_url_details_v1(
         return result
     except UrlNotFoundError:
         logger.info("URL não encontrada via API v1", extra={"short_code": short_code})
-        raise HTTPException(status_code=404, detail="URL não encontrada")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error_type": "NOT_FOUND",
+                "message": "URL encurtada não encontrada.",
+            },
+        )
