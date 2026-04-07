@@ -9,6 +9,7 @@ from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from app.config import get_settings
 from app.infrastructure.routers.links_router import router as links_router
+from app.infrastructure.routers.projects_router import router as projects_router
 from app.infrastructure.routers.redirect_router import router as redirect_router
 from app.infrastructure.routers.shorten_router import router as shorten_router
 from app.infrastructure.routers.url_details_router import router as url_details_router
@@ -78,6 +79,7 @@ def create_app() -> FastAPI:
     )
 
     # Routers — ordem importa: shorten e links antes de redirect para evitar conflito
+    app.include_router(projects_router)
     app.include_router(shorten_router)
     app.include_router(links_router)
     app.include_router(url_details_router)

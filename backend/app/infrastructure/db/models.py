@@ -1,6 +1,17 @@
 """Modelos ORM SQLAlchemy para o banco de dados."""
 
-from sqlalchemy import Boolean, Column, DateTime, Index, Integer, String, func
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -38,3 +49,26 @@ class ApiKeyModel(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (Index("ix_api_keys_key", "key"),)
+
+
+class ProjectModel(Base):
+    """Modelo ORM para Projetos."""
+
+    __tablename__ = "projects"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True)
+    account_id = Column(PGUUID(as_uuid=True), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    created_by = Column(PGUUID(as_uuid=True), nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="true")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("name", "account_id", name="uq_projects_name_account"),
+        Index("ix_projects_account_id", "account_id"),
+        # Índice composto para otimizar queries de listagem com ordenação por created_at DESC
+        Index("ix_projects_account_id_created_at", "account_id", "created_at"),
+        # Índice para ordenação por nome
+        Index("ix_projects_account_id_name", "account_id", "name"),
+    )
