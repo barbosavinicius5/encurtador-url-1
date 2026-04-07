@@ -2,7 +2,8 @@
 
 import logging
 
-from sqlalchemy import select, update
+from sqlalchemy import asc, select, update
+from sqlalchemy import desc as sa_desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.shortened_url import ShortenedUrl
@@ -110,22 +111,34 @@ class PostgreSQLUrlRepository(UrlRepositoryPort):
             extra={"short_code": short_code},
         )
 
-    async def find_by_session_id(self, session_id: str) -> list[ShortenedUrl]:
+    async def find_by_session_id(
+        self,
+        session_id: str,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+    ) -> list[ShortenedUrl]:
         """Retorna todos os links associados ao session_id.
 
         Args:
             session_id: UUID da sessão anônima.
+            sort_by: Campo de ordenação. Valores aceitos: 'created_at', 'click_count'.
+                     Default: 'created_at'.
+            sort_order: Direção da ordenação. Valores aceitos: 'asc', 'desc'.
+                        Default: 'desc'.
 
         Returns:
-            Lista de entidades ordenadas por created_at DESC.
+            Lista de entidades ordenadas conforme os parâmetros.
         """
+        sort_column = getattr(ShortenedUrlModel, sort_by)
+        order_fn = sa_desc if sort_order == "desc" else asc
+
         stmt = (
             select(ShortenedUrlModel)
             .where(
                 ShortenedUrlModel.session_id == session_id,
                 ShortenedUrlModel.deleted_at.is_(None),
             )
-            .order_by(ShortenedUrlModel.created_at.desc())
+            .order_by(order_fn(sort_column))
         )
         result = await self.session.execute(stmt)
         models = result.scalars().all()

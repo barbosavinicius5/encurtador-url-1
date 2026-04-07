@@ -29,6 +29,22 @@ class UrlRepositoryPort(ABC):
         ...
 
     @abstractmethod
-    async def find_by_session_id(self, session_id: str) -> list[ShortenedUrl]:
-        """Retorna todos os links associados ao session_id, ordenados por created_at DESC."""
+    async def find_by_session_id(
+        self,
+        session_id: str,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+    ) -> list[ShortenedUrl]:
+        """Retorna todos os links associados ao session_id.
+
+        Args:
+            session_id: UUID da sessão anônima.
+            sort_by: Campo de ordenação. Valores aceitos: 'created_at', 'click_count'.
+                     Default: 'created_at'.
+            sort_order: Direção da ordenação. Valores aceitos: 'asc', 'desc'.
+                        Default: 'desc'.
+
+        Returns:
+            Lista de entidades ShortenedUrl ordenadas conforme os parâmetros.
+        """
         ...
