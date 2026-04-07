@@ -17,7 +17,7 @@ from app.infrastructure.db.session import get_session, get_session_factory
 async def get_redis_client(
     settings: Settings = Depends(get_settings),
 ) -> RedisClient:
-    """Dependency que fornece um cliente Redis configurado."""
+    """Dependency que fornece um cliente Redis configurado via pool de conexões compartilhado."""
     return RedisClient(settings)
 
 

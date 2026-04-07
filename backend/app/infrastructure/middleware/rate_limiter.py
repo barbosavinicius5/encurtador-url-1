@@ -9,6 +9,8 @@ from app.infrastructure.cache.redis_client import RedisClient
 
 logger = logging.getLogger(__name__)
 
+_BRUTE_FORCE_COUNT_KEY = "brute_force:count:{ip}"
+
 
 async def rate_limit_by_ip(
     request: Request,
@@ -17,6 +19,9 @@ async def rate_limit_by_ip(
     """FastAPI dependency que aplica rate limiting por IP.
 
     Implementa sliding window simplificado usando Redis INCR + EXPIRE.
+    Quando o limite é atingido, incrementa o contador de violações para
+    detecção de força bruta pelo brute_force_protection dependency.
+
     Comportamento fail-open: se Redis estiver indisponível, permite a requisição.
 
     Args:
@@ -35,21 +40,37 @@ async def rate_limit_by_ip(
             key,
             ttl_seconds=settings.rate_limit_window_seconds,
         )
-        await redis_client.close()
 
         if count > settings.rate_limit_requests:
+            # Obter TTL real da chave para o header Retry-After
+            ttl = await redis_client.get_ttl(key)
+            retry_after = max(ttl, 1) if ttl > 0 else settings.rate_limit_window_seconds
+
+            # Incrementar contador de violações para detecção de brute force
+            count_key = _BRUTE_FORCE_COUNT_KEY.format(ip=client_ip)
+            try:
+                await redis_client.increment_with_ttl(
+                    count_key,
+                    ttl_seconds=settings.brute_force_detection_window_seconds,
+                )
+            except Exception:
+                pass  # Não falhar o rate limiting por erro no counter de brute force
+
             logger.warning(
                 "Rate limit atingido",
                 extra={
-                    "ip": client_ip,
+                    "client_ip": client_ip,
                     "count": count,
                     "limit": settings.rate_limit_requests,
+                    "endpoint": str(request.url.path),
+                    "block_type": "rate_limit",
+                    "retry_after": retry_after,
                 },
             )
             raise HTTPException(
                 status_code=429,
                 detail="Limite de requisições atingido. Tente novamente em instantes.",
-                headers={"Retry-After": str(settings.rate_limit_window_seconds)},
+                headers={"Retry-After": str(retry_after)},
             )
     except HTTPException:
         raise
@@ -57,7 +78,7 @@ async def rate_limit_by_ip(
         # Fail-open: se Redis estiver indisponível, permite a requisição
         logger.warning(
             "Redis indisponível no rate limiter — fail open",
-            extra={"ip": client_ip, "error": str(e)},
+            extra={"client_ip": client_ip, "error": str(e)},
         )
 
 
@@ -88,9 +109,11 @@ async def rate_limit_by_api_key(
             redis_key,
             ttl_seconds=settings.rate_limit_window_seconds,
         )
-        await redis_client.close()
 
         if count > settings.api_rate_limit_requests:
+            ttl = await redis_client.get_ttl(redis_key)
+            retry_after = max(ttl, 1) if ttl > 0 else settings.rate_limit_window_seconds
+
             logger.warning(
                 "Rate limit por API Key atingido",
                 extra={
@@ -101,8 +124,8 @@ async def rate_limit_by_api_key(
             )
             raise HTTPException(
                 status_code=429,
-                detail=f"Rate limit excedido. Tente novamente em {settings.rate_limit_window_seconds} segundos.",
-                headers={"Retry-After": str(settings.rate_limit_window_seconds)},
+                detail=f"Rate limit excedido. Tente novamente em {retry_after} segundos.",
+                headers={"Retry-After": str(retry_after)},
             )
     except HTTPException:
         raise

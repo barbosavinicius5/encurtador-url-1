@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     blocked_domains_csv: str = ""
     cache_ttl_seconds: int = 3600  # TTL do cache de redirecionamento (segundos)
 
+    # Brute force detection — parâmetros de detecção de força bruta/varredura abusiva
+    brute_force_threshold_multiplier: int = 3  # Fator: RATE_LIMIT_REQUESTS × multiplier = threshold
+    brute_force_detection_window_seconds: int = 300  # Janela expandida de detecção (5 min)
+    brute_force_block_seconds: int = 3600  # Duração do bloqueio progressivo (1 hora)
+
     @property
     def blocked_domains(self) -> list[str]:
         """Retorna a lista de domínios bloqueados parseada do CSV."""
