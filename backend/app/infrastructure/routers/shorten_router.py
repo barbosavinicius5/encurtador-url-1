@@ -12,6 +12,7 @@ from app.application.dtos.shorten_url_dto import ShortenUrlRequest, ShortenUrlRe
 from app.application.use_cases.shorten_url_use_case import ShortenUrlUseCase
 from app.config import Settings, get_settings
 from app.domain.entities.api_key import ApiKey
+from app.domain.exceptions import InvalidUrlError, MaliciousDomainError, SlugCollisionError
 from app.infrastructure.db.session import get_session
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,8 @@ async def _get_use_case(
             },
         },
         401: {"description": "API key ausente ou inválida"},
-        422: {"description": "URL inválida ou malformada"},
+        409: {"description": "Slug já em uso ou URL já encurtada nesta sessão"},
+        422: {"description": "URL inválida, malformada ou domínio bloqueado"},
         429: {"description": "Rate limit excedido"},
     },
 )
@@ -101,8 +103,25 @@ async def shorten_url(
             )
 
         return result
+    except MaliciousDomainError:
+        logger.warning("URL rejeitada por domínio malicioso")
+        raise HTTPException(
+            status_code=422,
+            detail="URL contém domínio bloqueado",
+        )
+    except InvalidUrlError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except SlugCollisionError:
+        logger.error("Esgotadas tentativas de geração de slug único", exc_info=True)
+        raise HTTPException(
+            status_code=409,
+            detail="slug already in use",
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    except RuntimeError as e:
-        logger.error("Erro interno ao encurtar URL", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail="Erro interno ao processar requisição")
+    except Exception:
+        logger.error("Erro ao encurtar URL", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Ocorreu um erro inesperado. Tente novamente mais tarde.",
+        )
