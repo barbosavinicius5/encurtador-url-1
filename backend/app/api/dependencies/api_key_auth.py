@@ -49,7 +49,10 @@ async def api_key_auth(
         logger.warning("Requisição sem header X-API-Key")
         raise HTTPException(
             status_code=401,
-            detail="API key inválida ou inativa",
+            detail={
+                "error_type": "UNAUTHORIZED",
+                "message": "API key ausente ou inválida.",
+            },
         )
 
     # Log com prefixo apenas — nunca o valor completo
@@ -65,7 +68,10 @@ async def api_key_auth(
         )
         raise HTTPException(
             status_code=401,
-            detail="API key inválida ou inativa",
+            detail={
+                "error_type": "UNAUTHORIZED",
+                "message": "API key ausente ou inválida.",
+            },
         )
 
     # Aplicar rate limiting por API Key

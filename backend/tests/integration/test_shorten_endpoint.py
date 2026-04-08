@@ -1,4 +1,4 @@
-"""Testes de integração para o endpoint POST /api/shorten."""
+"""Testes de integração para o endpoint POST /api/v1/shorten."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -43,7 +43,7 @@ class TestShortenEndpoint:
             mock_dep.return_value = mock_use_case
 
             response = await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "https://exemplo.com/pagina-longa"},
                 headers={"X-API-Key": "valid-key"},
             )
@@ -59,7 +59,7 @@ class TestShortenEndpoint:
     async def test_post_url_invalida_retorna_422(self, app, client):
         app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         response = await client.post(
-            "/api/shorten",
+            "/api/v1/shorten",
             json={"url": "nao-e-uma-url"},
             headers={"X-API-Key": "valid-key"},
         )
@@ -70,7 +70,7 @@ class TestShortenEndpoint:
     async def test_post_url_vazia_retorna_422(self, app, client):
         app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         response = await client.post(
-            "/api/shorten",
+            "/api/v1/shorten",
             json={"url": ""},
             headers={"X-API-Key": "valid-key"},
         )
@@ -81,7 +81,7 @@ class TestShortenEndpoint:
     async def test_post_sem_protocolo_retorna_422(self, app, client):
         app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
         response = await client.post(
-            "/api/shorten",
+            "/api/v1/shorten",
             json={"url": "exemplo.com/pagina"},
             headers={"X-API-Key": "valid-key"},
         )
@@ -103,7 +103,7 @@ class TestShortenEndpoint:
             mock_dep.return_value = mock_use_case
 
             response = await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "https://exemplo.com"},
                 headers={"X-API-Key": "valid-key"},
             )
@@ -128,7 +128,7 @@ class TestShortenEndpoint:
             mock_dep.return_value = mock_use_case
 
             response = await client.post(
-                "/api/shorten",
+                "/api/v1/shorten",
                 json={"url": "https://exemplo.com"},
                 headers={"X-API-Key": "valid-key"},
             )

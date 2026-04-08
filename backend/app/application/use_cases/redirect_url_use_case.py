@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from typing import Callable
 
 from app.domain.ports.url_repository_port import UrlRepositoryPort
 from app.infrastructure.cache.redis_client import RedisClient
@@ -12,9 +13,17 @@ logger = logging.getLogger(__name__)
 class RedirectUrlUseCase:
     """Use case responsável por resolver o redirect de um short_code."""
 
-    def __init__(self, repository: UrlRepositoryPort, cache: RedisClient):
+    def __init__(
+        self,
+        repository: UrlRepositoryPort,
+        cache: RedisClient,
+        cache_ttl_seconds: int = 3600,
+        session_factory: Callable | None = None,
+    ):
         self.repository = repository
         self.cache = cache
+        self.cache_ttl_seconds = cache_ttl_seconds
+        self._session_factory = session_factory
 
     async def execute(self, short_code: str) -> str:
         """Retorna a URL original para um short_code.
@@ -58,7 +67,7 @@ class RedirectUrlUseCase:
 
         # Popula cache
         try:
-            await self.cache.set(cache_key, entity.original_url, ttl_seconds=3600)
+            await self.cache.set(cache_key, entity.original_url, ttl_seconds=self.cache_ttl_seconds)
         except Exception as e:
             logger.warning(
                 "Erro ao popular cache Redis",
@@ -78,6 +87,10 @@ class RedirectUrlUseCase:
     async def _persist_click(self, short_code: str) -> None:
         """Persiste o clique no banco de dados atomicamente.
 
+        Se um session_factory foi injetado, cria uma sessão independente para
+        a tarefa de background — evitando conflitos com a sessão do request HTTP,
+        que pode já ter sido encerrada quando esta task executar.
+
         Falhas são silenciadas e logadas como ERROR — não devem
         impactar o redirect principal.
 
@@ -85,7 +98,16 @@ class RedirectUrlUseCase:
             short_code: Código do link encurtado que recebeu o clique.
         """
         try:
-            await self.repository.increment_click_count(short_code)
+            if self._session_factory is not None:
+                from app.infrastructure.db.repositories.url_repository import (
+                    PostgreSQLUrlRepository,
+                )
+
+                async with self._session_factory() as session:
+                    repo = PostgreSQLUrlRepository(session)
+                    await repo.increment_click_count(short_code)
+            else:
+                await self.repository.increment_click_count(short_code)
         except Exception as e:
             logger.error(
                 "Falha ao persistir clique no banco",
