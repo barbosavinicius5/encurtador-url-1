@@ -137,3 +137,206 @@ class TestShortenEndpoint:
         assert response.status_code == 201
         data = response.json()
         assert data["short_url"].startswith("https://")
+
+
+class TestShortenEndpointUrlsNaoConvencionais:
+    """Testes de integração para URLs válidas não convencionais — Cenários A, B, C."""
+
+    @pytest.mark.asyncio
+    async def test_shorten_aceita_url_com_percent_encoding_no_path(self, app, client):
+        """Cenário A: URL com percent-encoding no path deve retornar 201."""
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        original_url = "https://exemplo.com/path%20com%20espacos"
+        with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
+            mock_use_case = AsyncMock()
+            mock_use_case.execute = AsyncMock(
+                return_value=MagicMock(
+                    short_code="aB12x",
+                    short_url="https://short.app/aB12x",
+                    original_url=original_url,
+                )
+            )
+            mock_dep.return_value = mock_use_case
+
+            response = await client.post(
+                "/api/shorten",
+                json={"url": original_url},
+                headers={"X-API-Key": "valid-key"},
+            )
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 201
+        assert "short_url" in response.json()
+
+    @pytest.mark.asyncio
+    async def test_shorten_aceita_url_com_query_string_complexa(self, app, client):
+        """Cenário B: URL com query string complexa (+ e %26) deve retornar 201."""
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        original_url = "https://exemplo.com/search?q=hello+world&filter=a%26b"
+        with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
+            mock_use_case = AsyncMock()
+            mock_use_case.execute = AsyncMock(
+                return_value=MagicMock(
+                    short_code="cD34y",
+                    short_url="https://short.app/cD34y",
+                    original_url=original_url,
+                )
+            )
+            mock_dep.return_value = mock_use_case
+
+            response = await client.post(
+                "/api/shorten",
+                json={"url": original_url},
+                headers={"X-API-Key": "valid-key"},
+            )
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 201
+        assert "short_url" in response.json()
+
+    @pytest.mark.asyncio
+    async def test_shorten_aceita_url_com_fragmento(self, app, client):
+        """Cenário C: URL com fragmento (#section) deve retornar 201."""
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        original_url = "https://exemplo.com/page#section-1"
+        with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
+            mock_use_case = AsyncMock()
+            mock_use_case.execute = AsyncMock(
+                return_value=MagicMock(
+                    short_code="eF56z",
+                    short_url="https://short.app/eF56z",
+                    original_url=original_url,
+                )
+            )
+            mock_dep.return_value = mock_use_case
+
+            response = await client.post(
+                "/api/shorten",
+                json={"url": original_url},
+                headers={"X-API-Key": "valid-key"},
+            )
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 201
+        assert "short_url" in response.json()
+
+    @pytest.mark.asyncio
+    async def test_shorten_aceita_url_com_path_e_fragmento(self, app, client):
+        """Cenário C (variante): URL com query string e fragmento deve retornar 201."""
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        original_url = "https://exemplo.com/page?q=1#top"
+        with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
+            mock_use_case = AsyncMock()
+            mock_use_case.execute = AsyncMock(
+                return_value=MagicMock(
+                    short_code="gH78w",
+                    short_url="https://short.app/gH78w",
+                    original_url=original_url,
+                )
+            )
+            mock_dep.return_value = mock_use_case
+
+            response = await client.post(
+                "/api/shorten",
+                json={"url": original_url},
+                headers={"X-API-Key": "valid-key"},
+            )
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 201
+
+    @pytest.mark.asyncio
+    async def test_shorten_regressao_url_simples_valida(self, app, client):
+        """Regressão — Cenário 8: URL simples válida deve continuar funcionando."""
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        original_url = "https://www.exemplo.com/produtos/categoria/promocao-verao-2026"
+        with patch("app.infrastructure.di.container.get_shorten_use_case") as mock_dep:
+            mock_use_case = AsyncMock()
+            mock_use_case.execute = AsyncMock(
+                return_value=MagicMock(
+                    short_code="iJ90v",
+                    short_url="https://short.app/iJ90v",
+                    original_url=original_url,
+                )
+            )
+            mock_dep.return_value = mock_use_case
+
+            response = await client.post(
+                "/api/shorten",
+                json={"url": original_url},
+                headers={"X-API-Key": "valid-key"},
+            )
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 201
+        data = response.json()
+        assert "short_url" in data
+
+
+class TestShortenEndpointUrlsInvalidasSeguranca:
+    """Testes de integração para rejeição de URLs inválidas — Cenários D, E, F."""
+
+    @pytest.mark.asyncio
+    async def test_shorten_rejeita_javascript_url(self, app, client):
+        """Cenário D: URL com esquema javascript: deve retornar 422."""
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        response = await client.post(
+            "/api/shorten",
+            json={"url": "javascript:alert(1)"},
+            headers={"X-API-Key": "valid-key"},
+        )
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_shorten_rejeita_data_url(self, app, client):
+        """Cenário D: URL com esquema data: deve retornar 422."""
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        response = await client.post(
+            "/api/shorten",
+            json={"url": "data:text/html,<script>alert(1)</script>"},
+            headers={"X-API-Key": "valid-key"},
+        )
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_shorten_rejeita_vbscript_url(self, app, client):
+        """Cenário D: URL com esquema vbscript: deve retornar 422."""
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        response = await client.post(
+            "/api/shorten",
+            json={"url": "vbscript:msgbox(1)"},
+            headers={"X-API-Key": "valid-key"},
+        )
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_shorten_rejeita_ftp_url(self, app, client):
+        """Cenário E: URL com esquema ftp: deve retornar 422."""
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        response = await client.post(
+            "/api/shorten",
+            json={"url": "ftp://exemplo.com/file"},
+            headers={"X-API-Key": "valid-key"},
+        )
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_shorten_rejeita_url_apenas_espacos(self, app, client):
+        """Cenário F: URL com apenas espaços deve retornar 422."""
+        app.dependency_overrides[api_key_auth] = lambda: _make_valid_api_key()
+        response = await client.post(
+            "/api/shorten",
+            json={"url": "   "},
+            headers={"X-API-Key": "valid-key"},
+        )
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 422
