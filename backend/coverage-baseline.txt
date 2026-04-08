@@ -1,0 +1,38 @@
+# Baseline de Cobertura de Testes — US-005
+# Medido em: 2026-04-08
+# Comando: pytest --cov=app --cov-report=term-missing -q
+
+## Resultado
+
+Total de cobertura: 80%
+Total de testes: 263 passed
+Tempo de execução: ~15.60s
+
+## Módulos com menor cobertura (baseline)
+
+| Módulo | Cobertura | Linhas Não Cobertas |
+|--------|-----------|---------------------|
+| app/infrastructure/db/repositories/url_repository.py | 39% | 30-44, 62-72, 90-92, 100-108, 122-133 |
+| app/infrastructure/db/repositories/api_key_repository.py | 54% | 32-39, 56-71 |
+| app/infrastructure/middleware/rate_limiter.py | 61% | 56-57, 106-140 |
+| app/infrastructure/cache/redis_client.py | 67% | 59-63, 73-76, 125-129, 139 |
+| app/infrastructure/di/container.py | 81% | 28, 46-47, 60-61 |
+
+## Módulos com cobertura 100%
+
+- app/domain/exceptions.py
+- app/domain/sanitization.py
+- app/domain/value_objects/url.py
+- app/domain/validators/malicious_domain_validator.py
+- app/infrastructure/db/models.py
+- app/infrastructure/middleware/metrics_middleware.py
+- app/infrastructure/middleware/request_id_middleware.py
+- app/infrastructure/routers/metrics_router.py
+- app/infrastructure/routers/legacy_compat_router.py
+- app/infrastructure/routers/v1/links_v1_router.py
+- app/infrastructure/routers/v1/url_details_v1_router.py
+
+## Notas
+
+Este baseline foi registrado ANTES de qualquer expansão de testes para a US-005.
+O objetivo é atingir e manter cobertura >= 80% conforme critério de aceite.
