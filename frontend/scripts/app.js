@@ -3,41 +3,85 @@
  * Vanilla JS, sem dependências externas.
  */
 
-'use strict';
+"use strict";
 
 // Configuração da URL base da API
 // Em produção, substituir por injeção via servidor ou variável de ambiente
-const API_BASE_URL = window.ENV_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = window.ENV_API_BASE_URL || "http://localhost:8000";
 
 // Chave do cache sessionStorage para os links
-const LINKS_CACHE_KEY = 'linksCache';
+const LINKS_CACHE_KEY = "linksCache";
+
+// Tempo (ms) que o feedback "Copiado!" permanece visível (RN3)
+const COPY_FEEDBACK_DURATION = 2000;
 
 // Referências aos elementos do DOM
-const form = document.getElementById('shorten-form');
-const urlInput = document.getElementById('url-input');
-const urlError = document.getElementById('url-error');
-const shortenBtn = document.getElementById('shorten-btn');
-const errorBanner = document.getElementById('error-banner');
-const resultSection = document.getElementById('result-section');
-const shortUrlDisplay = document.getElementById('short-url-display');
-const copyBtn = document.getElementById('copy-btn');
+const form = document.getElementById("shorten-form");
+const urlInput = document.getElementById("url-input");
+const urlError = document.getElementById("url-error");
+const shortenBtn = document.getElementById("shorten-btn");
+const errorBanner = document.getElementById("error-banner");
+const resultSection = document.getElementById("result-section");
+const shortUrlDisplay = document.getElementById("short-url-display");
+const copyBtn = document.getElementById("copy-btn");
 
 // ————————————————————————————————————————————————————
-// Funções de validação
+// Funções de validação client-side (bifurcada — AC2/AC3)
 // ————————————————————————————————————————————————————
 
 /**
- * Valida se a string é uma URL válida com protocolo http ou https.
- * @param {string} url
- * @returns {boolean}
+ * Valida a URL com bifurcação entre campo vazio e formato inválido.
+ * @param {string} rawValue - Valor bruto do campo (sem trim)
+ * @returns {{ valid: boolean, type?: 'empty'|'format', message?: string }}
  */
-function isValidUrl(url) {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
+function validateUrlClientSide(rawValue) {
+  const trimmed = rawValue.trim();
+
+  // AC2: campo vazio — não dispara requisição e exibe mensagem de obrigatoriedade
+  if (!trimmed) {
+    return {
+      valid: false,
+      type: "empty",
+      message: "Por favor, informe uma URL para encurtar.",
+    };
   }
+
+  // AC3: formato inválido — deve mencionar http:// ou https://
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return {
+        valid: false,
+        type: "format",
+        message:
+          "URL inválida. Certifique-se de que começa com http:// ou https://",
+      };
+    }
+  } catch {
+    return {
+      valid: false,
+      type: "format",
+      message:
+        "URL inválida. Certifique-se de que começa com http:// ou https://",
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Sanitiza um href antes de inserir no DOM — garante esquema http/https.
+ * Previne XSS via javascript: ou data: URLs (RN5).
+ * @param {string} url
+ * @returns {string} URL segura ou '#' como fallback
+ */
+function sanitizeHref(url) {
+  if (typeof url !== "string") return "#";
+  const trimmed = url.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  return "#";
 }
 
 // ————————————————————————————————————————————————————
@@ -45,27 +89,35 @@ function isValidUrl(url) {
 // ————————————————————————————————————————————————————
 
 /**
- * Ativa/desativa o estado de loading do botão.
+ * Ativa/desativa o estado de loading do botão e campo (AC4).
+ * Desabilita também o input para evitar edição concorrente.
  * @param {boolean} isLoading
  */
 function setLoading(isLoading) {
   shortenBtn.disabled = isLoading;
-  shortenBtn.textContent = isLoading ? 'Encurtando...' : 'Encurtar';
+  urlInput.disabled = isLoading;
+  shortenBtn.textContent = isLoading ? "Encurtando..." : "Encurtar";
+  if (isLoading) {
+    shortenBtn.setAttribute("aria-busy", "true");
+  } else {
+    shortenBtn.removeAttribute("aria-busy");
+  }
 }
 
 /**
- * Exibe um erro inline no campo de URL.
+ * Exibe um erro inline no campo de URL (AC2/AC3).
+ * O foco retorna ao campo para facilitar correção.
  * @param {string} message
  */
 function showFieldError(message) {
   urlError.textContent = message;
   urlError.hidden = false;
-  urlInput.setAttribute('aria-invalid', 'true');
+  urlInput.setAttribute("aria-invalid", "true");
   urlInput.focus();
 }
 
 /**
- * Exibe uma mensagem de erro no banner global.
+ * Exibe uma mensagem de erro no banner global (AC7).
  * @param {string} message
  */
 function showBannerError(message) {
@@ -78,19 +130,21 @@ function showBannerError(message) {
  */
 function clearErrors() {
   urlError.hidden = true;
-  urlError.textContent = '';
-  urlInput.removeAttribute('aria-invalid');
+  urlError.textContent = "";
+  urlInput.removeAttribute("aria-invalid");
   errorBanner.hidden = true;
-  errorBanner.textContent = '';
+  errorBanner.textContent = "";
 }
 
 /**
- * Exibe o resultado com o link curto gerado.
+ * Exibe o resultado com o link curto gerado (AC5).
+ * Usa textContent para textos (seguro contra XSS) e sanitizeHref para o href (RN5).
  * @param {string} shortUrl
  */
 function showResult(shortUrl) {
-  shortUrlDisplay.textContent = shortUrl;
-  shortUrlDisplay.href = shortUrl;
+  const safeHref = sanitizeHref(shortUrl);
+  shortUrlDisplay.textContent = shortUrl; // textContent — seguro contra XSS
+  shortUrlDisplay.href = safeHref; // href validado — previne javascript:/data:
   resultSection.hidden = false;
 }
 
@@ -105,8 +159,8 @@ function showResult(shortUrl) {
  */
 async function shortenUrl(url) {
   const response = await fetch(`${API_BASE_URL}/api/shorten`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
   });
 
@@ -116,25 +170,38 @@ async function shortenUrl(url) {
   }
 
   if (response.status === 422) {
+    // Usar a mensagem orientativa do backend (RN4) quando disponível
+    let detail =
+      "URL inválida. Verifique se começa com http:// ou https:// e tente novamente.";
+    try {
+      const data = await response.json();
+      if (data && typeof data.detail === "string" && data.detail.length > 0) {
+        detail = data.detail;
+      }
+    } catch {
+      // Ignorar erros de parse — usar mensagem padrão
+    }
     return {
       success: false,
-      type: 'validation',
-      message: 'Por favor, insira uma URL válida (ex: https://exemplo.com)',
+      type: "validation",
+      message: detail,
     };
   }
 
   if (response.status === 429) {
     return {
       success: false,
-      type: 'rate_limit',
-      message: 'Limite de requisições atingido. Aguarde um momento antes de tentar novamente.',
+      type: "rate_limit",
+      message:
+        "Limite de requisições atingido. Aguarde um momento antes de tentar novamente.",
     };
   }
 
+  // Erro 500 ou outro erro de servidor
   return {
     success: false,
-    type: 'generic',
-    message: 'Ocorreu um erro inesperado. Tente novamente em alguns instantes.',
+    type: "server",
+    message: "Ocorreu um erro no servidor. Tente novamente em instantes.",
   };
 }
 
@@ -143,21 +210,24 @@ async function shortenUrl(url) {
 // ————————————————————————————————————————————————————
 
 /**
- * Submit do formulário — valida e chama a API.
+ * Submit do formulário — validação bifurcada e chamada à API (AC2/AC3/AC4).
  */
-form.addEventListener('submit', async (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearErrors();
 
-  const url = urlInput.value.trim();
-
-  // Validação client-side (somente no submit)
-  if (!isValidUrl(url)) {
-    showFieldError('Por favor, insira uma URL válida (ex: https://exemplo.com)');
-    return;
+  // Validação client-side bifurcada (AC2: vazio / AC3: formato inválido)
+  const validation = validateUrlClientSide(urlInput.value);
+  if (!validation.valid) {
+    showFieldError(validation.message);
+    return; // Não dispara requisição (AC2/AC3)
   }
 
+  const url = urlInput.value.trim();
+
+  // Loading state: desabilita botão e campo (AC4)
   setLoading(true);
+  resultSection.hidden = true;
 
   try {
     const result = await shortenUrl(url);
@@ -167,37 +237,57 @@ form.addEventListener('submit', async (event) => {
       // Invalida cache e recarrega painel de links
       sessionStorage.removeItem(LINKS_CACHE_KEY);
       await loadLinks();
+    } else if (result.type === "validation") {
+      // Erro de validação do backend — exibir no campo (AC7/RN4)
+      showFieldError(result.message);
     } else {
+      // Erros de servidor ou rate limit — exibir no banner (AC7)
       showBannerError(result.message);
     }
   } catch (networkError) {
-    console.error('Erro de rede:', networkError);
-    showBannerError('Ocorreu um erro inesperado. Tente novamente em alguns instantes.');
+    // Erro de rede — mensagem específica sobre conexão (AC7/RN4)
+    console.error("Erro de rede:", networkError);
+    showBannerError(
+      "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.",
+    );
   } finally {
     setLoading(false);
   }
 });
 
 /**
- * Copiar link curto para a área de transferência.
+ * Copiar link curto para a área de transferência com feedback temporal (AC6/RN3).
+ * Feedback "Copiado!" por COPY_FEEDBACK_DURATION ms, depois retorna a "Copiar".
  */
-copyBtn.addEventListener('click', async () => {
+let copyTimeout = null;
+copyBtn.addEventListener("click", async () => {
   const shortUrl = shortUrlDisplay.textContent;
 
   try {
     await navigator.clipboard.writeText(shortUrl);
-    copyBtn.textContent = 'Copiado!';
-    copyBtn.classList.add('copied');
+    copyBtn.textContent = "Copiado!";
+    copyBtn.classList.add("copied");
   } catch {
-    // Fallback para navegadores sem suporte à Clipboard API
-    copyBtn.textContent = 'Copie manualmente';
+    // Fallback para navegadores sem suporte à Clipboard API (contexto não-seguro)
+    // Tenta selecionar o texto do link como alternativa
+    try {
+      const range = document.createRange();
+      range.selectNode(shortUrlDisplay);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    } catch {
+      // Silencioso — clipboard e seleção indisponíveis
+    }
+    copyBtn.textContent = "Copie manualmente";
+    copyBtn.classList.add("copied");
   }
 
-  // Restaura estado original após 2 segundos
-  setTimeout(() => {
-    copyBtn.textContent = 'Copiar';
-    copyBtn.classList.remove('copied');
-  }, 2000);
+  // Restaura estado original após COPY_FEEDBACK_DURATION ms (RN3)
+  clearTimeout(copyTimeout);
+  copyTimeout = setTimeout(() => {
+    copyBtn.textContent = "Copiar";
+    copyBtn.classList.remove("copied");
+  }, COPY_FEEDBACK_DURATION);
 });
 
 // ————————————————————————————————————————————————————
@@ -212,7 +302,7 @@ copyBtn.addEventListener('click', async () => {
  */
 function truncateUrl(url, maxLength) {
   if (url.length <= maxLength) return url;
-  return url.substring(0, maxLength) + '...';
+  return url.substring(0, maxLength) + "...";
 }
 
 /**
@@ -223,17 +313,17 @@ function truncateUrl(url, maxLength) {
 async function copyWithFeedback(btn, text) {
   try {
     await navigator.clipboard.writeText(text);
-    btn.textContent = 'Copiado! ✓';
-    btn.classList.add('copied');
+    btn.textContent = "Copiado! ✓";
+    btn.classList.add("copied");
   } catch {
     // Fallback silencioso: Clipboard API pode não estar disponível em HTTP
-    console.error('Clipboard API não disponível');
-    btn.textContent = 'Copie manualmente';
+    console.error("Clipboard API não disponível");
+    btn.textContent = "Copie manualmente";
   }
 
   setTimeout(() => {
-    btn.textContent = 'Copiar';
-    btn.classList.remove('copied');
+    btn.textContent = "Copiar";
+    btn.classList.remove("copied");
   }, 2000);
 }
 
@@ -242,64 +332,66 @@ async function copyWithFeedback(btn, text) {
  * @param {Array<{short_code: string, original_url: string, short_url: string, click_count: number}>} links
  */
 function renderLinks(links) {
-  const panel = document.getElementById('links-panel');
-  const emptyState = document.getElementById('empty-state');
-  const tableWrapper = document.getElementById('links-table-wrapper');
-  const tbody = document.getElementById('links-tbody');
+  const panel = document.getElementById("links-panel");
+  const emptyState = document.getElementById("empty-state");
+  const tableWrapper = document.getElementById("links-table-wrapper");
+  const tbody = document.getElementById("links-tbody");
 
   // Exibir o painel
   panel.hidden = false;
 
   if (!links || links.length === 0) {
-    emptyState.classList.remove('hidden');
-    tableWrapper.classList.add('hidden');
+    emptyState.classList.remove("hidden");
+    tableWrapper.classList.add("hidden");
     return;
   }
 
-  emptyState.classList.add('hidden');
-  tableWrapper.classList.remove('hidden');
+  emptyState.classList.add("hidden");
+  tableWrapper.classList.remove("hidden");
 
   // Limpar linhas anteriores
-  tbody.innerHTML = '';
+  tbody.innerHTML = "";
 
   links.forEach((link) => {
-    const tr = document.createElement('tr');
+    const tr = document.createElement("tr");
 
     // Coluna: URL Original
-    const tdOriginal = document.createElement('td');
-    tdOriginal.className = 'links-table__original-url';
-    tdOriginal.setAttribute('title', link.original_url);
-    const aOriginal = document.createElement('a');
-    aOriginal.href = link.original_url;
-    aOriginal.target = '_blank';
-    aOriginal.rel = 'noopener noreferrer';
+    const tdOriginal = document.createElement("td");
+    tdOriginal.className = "links-table__original-url";
+    tdOriginal.setAttribute("title", link.original_url);
+    const aOriginal = document.createElement("a");
+    aOriginal.href = sanitizeHref(link.original_url); // sanitizado — previne XSS (RN5)
+    aOriginal.target = "_blank";
+    aOriginal.rel = "noopener noreferrer";
     aOriginal.textContent = truncateUrl(link.original_url, 50);
     tdOriginal.appendChild(aOriginal);
 
     // Coluna: Link Curto
-    const tdShort = document.createElement('td');
-    tdShort.className = 'links-table__short-url';
-    const aShort = document.createElement('a');
-    aShort.href = link.short_url;
-    aShort.target = '_blank';
-    aShort.rel = 'noopener noreferrer';
+    const tdShort = document.createElement("td");
+    tdShort.className = "links-table__short-url";
+    const aShort = document.createElement("a");
+    aShort.href = sanitizeHref(link.short_url); // sanitizado — previne XSS (RN5)
+    aShort.target = "_blank";
+    aShort.rel = "noopener noreferrer";
     aShort.textContent = link.short_url;
     tdShort.appendChild(aShort);
 
     // Coluna: Cliques
-    const tdClicks = document.createElement('td');
-    tdClicks.className = 'links-table__clicks';
+    const tdClicks = document.createElement("td");
+    tdClicks.className = "links-table__clicks";
     tdClicks.textContent = link.click_count;
 
     // Coluna: Ação
-    const tdAction = document.createElement('td');
-    tdAction.className = 'links-table__action';
-    const btnCopy = document.createElement('button');
-    btnCopy.type = 'button';
-    btnCopy.className = 'btn-copy';
-    btnCopy.textContent = 'Copiar';
-    btnCopy.setAttribute('aria-label', `Copiar link curto ${link.short_url}`);
-    btnCopy.addEventListener('click', () => copyWithFeedback(btnCopy, link.short_url));
+    const tdAction = document.createElement("td");
+    tdAction.className = "links-table__action";
+    const btnCopy = document.createElement("button");
+    btnCopy.type = "button";
+    btnCopy.className = "btn-copy";
+    btnCopy.textContent = "Copiar";
+    btnCopy.setAttribute("aria-label", `Copiar link curto ${link.short_url}`);
+    btnCopy.addEventListener("click", () =>
+      copyWithFeedback(btnCopy, link.short_url),
+    );
     tdAction.appendChild(btnCopy);
 
     tr.appendChild(tdOriginal);
@@ -329,12 +421,12 @@ async function loadLinks() {
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/links`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
 
     if (!response.ok) {
-      console.error('[loadLinks] Erro na API:', response.status);
+      console.error("[loadLinks] Erro na API:", response.status);
       // Exibir estado vazio sem lançar erro
       renderLinks([]);
       return;
@@ -345,13 +437,13 @@ async function loadLinks() {
     sessionStorage.setItem(LINKS_CACHE_KEY, JSON.stringify(data.links));
     renderLinks(data.links);
   } catch (err) {
-    console.error('[loadLinks] Falha ao carregar links:', err);
+    console.error("[loadLinks] Falha ao carregar links:", err);
     // Exibir estado vazio sem lançar exceção
     renderLinks([]);
   }
 }
 
 // Carregar links ao inicializar a página
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   loadLinks();
 });

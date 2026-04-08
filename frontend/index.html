@@ -1,74 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Encurtador de URL</title>
-  <link rel="stylesheet" href="styles/main.css">
-</head>
-<body>
-  <main class="container">
-    <div class="header">
-      <h1>Encurtador de URL</h1>
-      <p class="subtitle">Transforme URLs longas em links curtos e compartilháveis</p>
-    </div>
-
-    <form id="shorten-form" novalidate>
-      <div class="input-group">
-        <label for="url-input">Cole sua URL longa aqui</label>
-        <input
-          type="url"
-          id="url-input"
-          name="url"
-          placeholder="https://exemplo.com/sua-url-longa"
-          autocomplete="off"
-          required
-          aria-describedby="url-error"
-        />
-        <span id="url-error" class="error-message" aria-live="polite" hidden></span>
-      </div>
-      <button type="submit" id="shorten-btn">Encurtar</button>
-    </form>
-
-    <div id="error-banner" class="error-banner" role="alert" aria-live="assertive" hidden></div>
-
-    <div id="result-section" class="result-section" hidden>
-      <p class="result-label">Seu link curto:</p>
-      <div class="result-row">
-        <a id="short-url-display" href="#" target="_blank" rel="noopener noreferrer" class="short-url"></a>
-        <button id="copy-btn" type="button" aria-label="Copiar link curto">Copiar</button>
-      </div>
-    </div>
-
-    <!-- Painel de Links -->
-    <section id="links-panel" class="links-panel" hidden>
-      <!-- Estado vazio -->
-      <div id="empty-state" class="empty-state hidden">
-        <p class="empty-state__icon" aria-hidden="true">🔗</p>
-        <p class="empty-state__title">Você ainda não tem links encurtados.</p>
-        <p class="empty-state__subtitle">Encurte sua primeira URL acima!</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Encurtador de URL</title>
+    <link rel="stylesheet" href="styles/main.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div class="header">
+        <h1>Encurtador de URL</h1>
+        <p class="subtitle">
+          Transforme URLs longas em links curtos e compartilháveis
+        </p>
       </div>
 
-      <!-- Tabela de links -->
-      <div id="links-table-wrapper" class="links-table-wrapper hidden">
-        <h2 class="links-panel__title">Meus Links</h2>
-        <table id="links-table" class="links-table" aria-label="Lista de links encurtados">
-          <thead>
-            <tr>
-              <th scope="col">URL Original</th>
-              <th scope="col">Link Curto</th>
-              <th scope="col">Cliques</th>
-              <th scope="col">Ação</th>
-            </tr>
-          </thead>
-          <tbody id="links-tbody">
-            <!-- Linhas renderizadas via JavaScript -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </main>
+      <form id="shorten-form" novalidate>
+        <div class="input-group">
+          <label for="url-input">Cole sua URL longa aqui</label>
+          <input
+            type="url"
+            id="url-input"
+            name="url"
+            placeholder="https://exemplo.com/sua-url-longa"
+            autocomplete="off"
+            required
+            aria-describedby="url-error"
+          />
+          <span
+            id="url-error"
+            class="error-message"
+            role="alert"
+            aria-live="assertive"
+            hidden
+          ></span>
+        </div>
+        <button type="submit" id="shorten-btn">Encurtar</button>
+      </form>
 
-  <script src="scripts/app.js"></script>
-</body>
+      <div
+        id="error-banner"
+        class="error-banner"
+        role="alert"
+        aria-live="assertive"
+        hidden
+      ></div>
+
+      <div id="result-section" class="result-section" hidden>
+        <p class="result-label">Seu link curto:</p>
+        <div class="result-row">
+          <a
+            id="short-url-display"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="short-url"
+          ></a>
+          <button id="copy-btn" type="button" aria-label="Copiar link curto">
+            Copiar
+          </button>
+        </div>
+      </div>
+
+      <!-- Painel de Links -->
+      <section id="links-panel" class="links-panel" hidden>
+        <!-- Estado vazio -->
+        <div id="empty-state" class="empty-state hidden">
+          <p class="empty-state__icon" aria-hidden="true">🔗</p>
+          <p class="empty-state__title">Você ainda não tem links encurtados.</p>
+          <p class="empty-state__subtitle">Encurte sua primeira URL acima!</p>
+        </div>
+
+        <!-- Tabela de links -->
+        <div id="links-table-wrapper" class="links-table-wrapper hidden">
+          <h2 class="links-panel__title">Meus Links</h2>
+          <table
+            id="links-table"
+            class="links-table"
+            aria-label="Lista de links encurtados"
+          >
+            <thead>
+              <tr>
+                <th scope="col">URL Original</th>
+                <th scope="col">Link Curto</th>
+                <th scope="col">Cliques</th>
+                <th scope="col">Ação</th>
+              </tr>
+            </thead>
+            <tbody id="links-tbody">
+              <!-- Linhas renderizadas via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="scripts/app.js"></script>
+  </body>
 </html>
