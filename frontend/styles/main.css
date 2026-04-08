@@ -279,6 +279,20 @@ label {
   .subtitle {
     font-size: 1rem;
   }
+
+  /* Painel de links em desktop largo — mais espaço para colunas */
+  .links-table {
+    font-size: 0.9375rem;
+  }
+
+  .links-table__original-url {
+    max-width: 300px;
+  }
+
+  .links-panel {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 /* =====================
@@ -288,6 +302,26 @@ label {
 .links-panel {
   margin-top: 2rem;
   width: 100%;
+}
+
+/* Banner de erro do painel de links */
+.links-error-banner {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-left: 4px solid #e53e3e;
+  border-radius: 6px;
+  color: #c53030;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* Indicador de URL indisponível (sanitizada pelo backend) */
+.links-table__url-unavailable {
+  color: #a0aec0;
+  font-style: italic;
+  font-size: 0.8125rem;
 }
 
 .links-panel__title {
@@ -475,6 +509,27 @@ label {
   #copy-btn {
     flex-shrink: 0;
     width: 100%;
+  }
+
+  /* Painel de links em 375px — tabela adapta para evitar overflow */
+  .links-table {
+    font-size: 0.8125rem;
+  }
+
+  .links-table th,
+  .links-table td {
+    padding: 0.5rem 0.375rem;
+  }
+
+  /* Coluna URL Original — reduzir max-width em telas muito pequenas */
+  .links-table__original-url {
+    max-width: 120px;
+  }
+
+  /* Banner de erro do painel */
+  .links-error-banner {
+    font-size: 0.875rem;
+    padding: 0.625rem 0.75rem;
   }
 }
 

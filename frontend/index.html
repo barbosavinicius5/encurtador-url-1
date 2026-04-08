@@ -67,8 +67,22 @@
 
       <!-- Painel de Links -->
       <section id="links-panel" class="links-panel" hidden>
+        <!-- Banner de erro do painel (oculto por padrão) -->
+        <div
+          id="links-error-banner"
+          class="links-error-banner"
+          role="alert"
+          aria-live="assertive"
+          hidden
+        ></div>
+
         <!-- Estado vazio -->
-        <div id="empty-state" class="empty-state hidden">
+        <div
+          id="empty-state"
+          class="empty-state hidden"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           <p class="empty-state__icon" aria-hidden="true">🔗</p>
           <p class="empty-state__title">Você ainda não tem links encurtados.</p>
           <p class="empty-state__subtitle">Encurte sua primeira URL acima!</p>
@@ -82,6 +96,7 @@
             class="links-table"
             aria-label="Lista de links encurtados"
           >
+            <caption class="sr-only">Lista de links encurtados criados nesta sessão</caption>
             <thead>
               <tr>
                 <th scope="col">URL Original</th>
@@ -98,6 +113,6 @@
       </section>
     </main>
 
-    <script src="scripts/app.js"></script>
+    <script src="scripts/app.js" type="module"></script>
   </body>
 </html>
