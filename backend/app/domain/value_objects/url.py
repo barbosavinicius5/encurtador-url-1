@@ -25,6 +25,10 @@ URL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Mensagens de erro orientativas conforme RN4 da US-002
+_MSG_EMPTY = "O campo URL é obrigatório. Informe uma URL válida para encurtar."
+_MSG_INVALID = "URL inválida. Verifique se a URL começa com http:// ou https:// e tente novamente."
+
 
 @dataclass(frozen=True)
 class UrlValue:
@@ -33,11 +37,17 @@ class UrlValue:
     Aceita apenas URLs com esquemas http e https.
     Suporta percent-encoding, query strings complexas e fragmentos (#).
     Rejeita esquemas perigosos: javascript:, data:, vbscript:, ftp: etc.
+
+    Mensagens de erro são orientativas, conforme RN4 da US-002:
+    - Campo vazio: instrui o usuário a informar uma URL.
+    - Formato inválido: menciona http:// ou https:// como solução.
     """
 
     value: str
 
     def __post_init__(self):
         stripped = self.value.strip() if self.value else ""
-        if not stripped or not URL_PATTERN.match(stripped):
-            raise ValueError(f"URL inválida: '{self.value}'")
+        if not stripped:
+            raise ValueError(_MSG_EMPTY)
+        if not URL_PATTERN.match(stripped):
+            raise ValueError(_MSG_INVALID)
