@@ -1,7 +1,7 @@
 """Testes unitários para PostgreSQLApiKeyRepository."""
 
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -65,21 +65,18 @@ class TestPostgreSQLApiKeyRepository:
         session.flush = AsyncMock()
         session.refresh = AsyncMock(side_effect=lambda m: None)
 
-        with MagicMock() as mock_model_class:
-            from unittest.mock import patch
-
-            with patch(
-                "app.infrastructure.db.repositories.api_key_repository.ApiKeyModel",
-                return_value=model,
-            ):
-                repo = PostgreSQLApiKeyRepository(session)
-                api_key = ApiKey(
-                    id=None,
-                    key="nova-chave-12345678",
-                    owner="novo-owner",
-                    is_active=True,
-                )
-                result = await repo.save(api_key)
+        with patch(
+            "app.infrastructure.db.repositories.api_key_repository.ApiKeyModel",
+            return_value=model,
+        ):
+            repo = PostgreSQLApiKeyRepository(session)
+            api_key = ApiKey(
+                id=None,
+                key="nova-chave-12345678",
+                owner="novo-owner",
+                is_active=True,
+            )
+            result = await repo.save(api_key)
 
         assert result.key == "nova-chave-12345678"
         assert result.owner == "test-owner"  # do model mock

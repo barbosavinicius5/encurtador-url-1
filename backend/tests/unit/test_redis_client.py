@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.config import Settings
-from app.infrastructure.cache.redis_client import RedisClient, get_shared_pool
+from app.infrastructure.cache.redis_client import RedisClient
 
 
 class TestRedisClient:
