@@ -42,11 +42,11 @@ function validateUrlClientSide(rawValue) {
     return {
       valid: false,
       type: "empty",
-      message: "Por favor, informe uma URL para encurtar.",
+      message: "O campo é obrigatório",
     };
   }
 
-  // AC3: formato inválido — deve mencionar http:// ou https://
+  // AC3: formato inválido — URL deve ser parseável e ter protocolo http/https
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
@@ -54,7 +54,7 @@ function validateUrlClientSide(rawValue) {
         valid: false,
         type: "format",
         message:
-          "URL inválida. Certifique-se de que começa com http:// ou https://",
+          "Por favor, insira uma URL válida (ex: https://exemplo.com)",
       };
     }
   } catch {
@@ -62,7 +62,7 @@ function validateUrlClientSide(rawValue) {
       valid: false,
       type: "format",
       message:
-        "URL inválida. Certifique-se de que começa com http:// ou https://",
+        "Por favor, insira uma URL válida (ex: https://exemplo.com)",
     };
   }
 
@@ -73,15 +73,15 @@ function validateUrlClientSide(rawValue) {
  * Sanitiza um href antes de inserir no DOM — garante esquema http/https.
  * Previne XSS via javascript: ou data: URLs (RN5).
  * @param {string} url
- * @returns {string} URL segura ou '#' como fallback
+ * @returns {{ safe: boolean, href: string }} href seguro ou '#' como fallback
  */
 function sanitizeHref(url) {
-  if (typeof url !== "string") return "#";
+  if (typeof url !== "string") return { safe: false, href: "#" };
   const trimmed = url.trim();
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) {
+    return { safe: true, href: trimmed };
   }
-  return "#";
+  return { safe: false, href: "#" };
 }
 
 // ————————————————————————————————————————————————————
@@ -96,7 +96,7 @@ function sanitizeHref(url) {
 function setLoading(isLoading) {
   shortenBtn.disabled = isLoading;
   urlInput.disabled = isLoading;
-  shortenBtn.textContent = isLoading ? "Encurtando..." : "Encurtar";
+  shortenBtn.textContent = isLoading ? "Encurtando..." : "Encurtar URL";
   if (isLoading) {
     shortenBtn.setAttribute("aria-busy", "true");
   } else {
@@ -139,13 +139,31 @@ function clearErrors() {
 /**
  * Exibe o resultado com o link curto gerado (AC5).
  * Usa textContent para textos (seguro contra XSS) e sanitizeHref para o href (RN5).
+ * Se a URL retornada pelo backend não começar com http:// ou https://, exibe erro.
  * @param {string} shortUrl
  */
 function showResult(shortUrl) {
-  const safeHref = sanitizeHref(shortUrl);
+  const { safe, href } = sanitizeHref(shortUrl);
+
+  // Cenário C: URL retornada com esquema inválido (ex: javascript:, data:) — não atribuir ao href
+  if (!safe) {
+    showBannerError(
+      "A URL retornada é inválida. Entre em contato com o suporte.",
+    );
+    return;
+  }
+
   shortUrlDisplay.textContent = shortUrl; // textContent — seguro contra XSS
-  shortUrlDisplay.href = safeHref; // href validado — previne javascript:/data:
+  shortUrlDisplay.href = href; // href validado — previne javascript:/data:
   resultSection.hidden = false;
+  // Anunciar resultado ao leitor de tela via aria-live no wrapper
+  const liveRegion = document.getElementById("result-live-region");
+  if (liveRegion) {
+    liveRegion.textContent = ""; // reset para forçar novo anúncio
+    setTimeout(() => {
+      liveRegion.textContent = `Link encurtado gerado: ${shortUrl}`;
+    }, 50);
+  }
 }
 
 // ————————————————————————————————————————————————————
@@ -170,21 +188,10 @@ async function shortenUrl(url) {
   }
 
   if (response.status === 422) {
-    // Usar a mensagem orientativa do backend (RN4) quando disponível
-    let detail =
-      "URL inválida. Verifique se começa com http:// ou https:// e tente novamente.";
-    try {
-      const data = await response.json();
-      if (data && typeof data.detail === "string" && data.detail.length > 0) {
-        detail = data.detail;
-      }
-    } catch {
-      // Ignorar erros de parse — usar mensagem padrão
-    }
     return {
       success: false,
       type: "validation",
-      message: detail,
+      message: "A URL informada não é válida. Verifique e tente novamente.",
     };
   }
 
@@ -197,11 +204,21 @@ async function shortenUrl(url) {
     };
   }
 
-  // Erro 500 ou outro erro de servidor
+  // Erro 500 ou outro erro de servidor — Cenário B
+  if (response.status >= 500) {
+    return {
+      success: false,
+      type: "server",
+      message:
+        "O serviço está temporariamente indisponível. Tente em alguns minutos.",
+    };
+  }
+
+  // Outros erros HTTP não mapeados
   return {
     success: false,
     type: "server",
-    message: "Ocorreu um erro no servidor. Tente novamente em instantes.",
+    message: "Ocorreu um problema. Tente novamente.",
   };
 }
 
@@ -245,11 +262,13 @@ form.addEventListener("submit", async (event) => {
       showBannerError(result.message);
     }
   } catch (networkError) {
-    // Erro de rede — mensagem específica sobre conexão (AC7/RN4)
+    // Erro de rede — TypeError indica offline/timeout (AC7/RN4)
     console.error("Erro de rede:", networkError);
-    showBannerError(
-      "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.",
-    );
+    if (networkError instanceof TypeError) {
+      showBannerError("Verifique sua conexão e tente novamente.");
+    } else {
+      showBannerError("Ocorreu um problema inesperado. Tente novamente.");
+    }
   } finally {
     setLoading(false);
   }
@@ -258,6 +277,7 @@ form.addEventListener("submit", async (event) => {
 /**
  * Copiar link curto para a área de transferência com feedback temporal (AC6/RN3).
  * Feedback "Copiado!" por COPY_FEEDBACK_DURATION ms, depois retorna a "Copiar".
+ * aria-label atualizado dinamicamente para leitores de tela (Cenário D/E).
  */
 let copyTimeout = null;
 copyBtn.addEventListener("click", async () => {
@@ -267,6 +287,8 @@ copyBtn.addEventListener("click", async () => {
     await navigator.clipboard.writeText(shortUrl);
     copyBtn.textContent = "Copiado!";
     copyBtn.classList.add("copied");
+    copyBtn.setAttribute("aria-label", "Link copiado, aguarde");
+    copyBtn.disabled = true;
   } catch {
     // Fallback para navegadores sem suporte à Clipboard API (contexto não-seguro)
     // Tenta selecionar o texto do link como alternativa
@@ -275,11 +297,16 @@ copyBtn.addEventListener("click", async () => {
       range.selectNode(shortUrlDisplay);
       window.getSelection().removeAllRanges();
       window.getSelection().addRange(range);
+      copyBtn.textContent = "Copiado!";
+      copyBtn.classList.add("copied");
+      copyBtn.setAttribute("aria-label", "Link copiado, aguarde");
+      copyBtn.disabled = true;
     } catch {
-      // Silencioso — clipboard e seleção indisponíveis
+      // Clipboard e seleção indisponíveis — informar ao usuário
+      showBannerError(
+        "Não foi possível copiar automaticamente. Copie a URL manualmente.",
+      );
     }
-    copyBtn.textContent = "Copie manualmente";
-    copyBtn.classList.add("copied");
   }
 
   // Restaura estado original após COPY_FEEDBACK_DURATION ms (RN3)
@@ -287,6 +314,8 @@ copyBtn.addEventListener("click", async () => {
   copyTimeout = setTimeout(() => {
     copyBtn.textContent = "Copiar";
     copyBtn.classList.remove("copied");
+    copyBtn.setAttribute("aria-label", "Copiar link encurtado");
+    copyBtn.disabled = false;
   }, COPY_FEEDBACK_DURATION);
 });
 
@@ -360,7 +389,7 @@ function renderLinks(links) {
     tdOriginal.className = "links-table__original-url";
     tdOriginal.setAttribute("title", link.original_url);
     const aOriginal = document.createElement("a");
-    aOriginal.href = sanitizeHref(link.original_url); // sanitizado — previne XSS (RN5)
+    aOriginal.href = sanitizeHref(link.original_url).href; // sanitizado — previne XSS (RN5)
     aOriginal.target = "_blank";
     aOriginal.rel = "noopener noreferrer";
     aOriginal.textContent = truncateUrl(link.original_url, 50);
@@ -370,7 +399,7 @@ function renderLinks(links) {
     const tdShort = document.createElement("td");
     tdShort.className = "links-table__short-url";
     const aShort = document.createElement("a");
-    aShort.href = sanitizeHref(link.short_url); // sanitizado — previne XSS (RN5)
+    aShort.href = sanitizeHref(link.short_url).href; // sanitizado — previne XSS (RN5)
     aShort.target = "_blank";
     aShort.rel = "noopener noreferrer";
     aShort.textContent = link.short_url;

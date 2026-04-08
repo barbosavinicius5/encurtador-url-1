@@ -7,6 +7,12 @@
   padding: 0;
 }
 
+/* Foco visível em todos os elementos interativos (WCAG 2.1 AA — Cenário E) */
+:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
 body {
   font-family:
     system-ui,
@@ -320,6 +326,19 @@ label {
   display: none !important;
 }
 
+/* Texto visível apenas para leitores de tela (WCAG — conteúdo acessível) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 /* Wrapper da tabela — permite scroll horizontal apenas no wrapper, não no body */
 .links-table-wrapper {
   overflow-x: auto;
@@ -414,6 +433,49 @@ label {
   background-color: #c6f6d5;
   color: #276749;
   border-color: #9ae6b4;
+}
+
+/* =====================
+   Responsividade Mobile mínimo (375px — iPhone SE)
+   Garante que não haja overflow horizontal no menor viewport suportado (Cenário F)
+   ===================== */
+
+@media (max-width: 375px) {
+  body {
+    padding: 0;
+  }
+
+  .container {
+    max-width: 100%;
+    border-radius: 0;
+    padding: 1rem 0.75rem;
+    box-shadow: none;
+    min-height: 100vh;
+    align-items: flex-start;
+  }
+
+  #url-input,
+  #shorten-btn,
+  #copy-btn {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 0.9rem;
+  }
+
+  .result-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .short-url {
+    flex: none;
+    width: 100%;
+  }
+
+  #copy-btn {
+    flex-shrink: 0;
+    width: 100%;
+  }
 }
 
 /* =====================
