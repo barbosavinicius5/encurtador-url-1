@@ -2,9 +2,12 @@
 
 from datetime import datetime
 
+import pytest
+
 from app.domain.entities.shortened_url import ShortenedUrl
 
 
+@pytest.mark.unit
 class TestShortenedUrlEntity:
     """Testes para a entidade de domínio ShortenedUrl."""
 

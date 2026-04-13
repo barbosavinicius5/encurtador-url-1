@@ -12,6 +12,7 @@ from app.application.use_cases.get_url_details_use_case import (
 from app.domain.entities.shortened_url import ShortenedUrl
 
 
+@pytest.mark.unit
 class TestGetUrlDetailsUseCase:
     """Testes para o use case de consulta de detalhes de URL."""
 

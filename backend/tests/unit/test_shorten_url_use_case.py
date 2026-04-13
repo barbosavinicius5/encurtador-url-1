@@ -8,6 +8,7 @@ from app.application.dtos.shorten_url_dto import ShortenUrlRequest, ShortenUrlRe
 from app.application.use_cases.shorten_url_use_case import ShortenUrlUseCase
 
 
+@pytest.mark.unit
 class TestShortenUrlUseCase:
     """Testes para o use case de encurtamento de URL."""
 

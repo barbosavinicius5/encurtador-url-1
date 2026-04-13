@@ -4,6 +4,16 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "unit: testes unitários sem I/O real",
+    "integration: testes de integração com dependências reais",
+    "e2e: testes end-to-end que verificam fluxos completos do sistema (deselect com '-m \"not e2e\"')",
+]
+# Timeout global de 15 minutos para a suíte E2E completa (AC-7: < 15min total)
+timeout = 900
+# Retry policy para flakiness < 2% (AC-6: máx 2 falhas espúrias em 100 execuções)
+reruns = 2
+reruns_delay = 2
 
 [tool.ruff]
 line-length = 100
@@ -12,3 +22,20 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
 ignore = ["E501"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/migrations/*",
+    "*/__init__.py",
+    "*/tests/*",
+    "app/infrastructure/db/models.py",
+    "app/infrastructure/db/session.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+
+[tool.coverage.html]
+directory = "htmlcov"
