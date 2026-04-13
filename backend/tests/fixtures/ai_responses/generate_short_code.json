@@ -1,0 +1,21 @@
+{
+  "model": "gpt-4o-mini",
+  "id": "chatcmpl-test-generate-short-code",
+  "object": "chat.completion",
+  "created": 1712000000,
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "aB12x"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 45,
+    "completion_tokens": 5,
+    "total_tokens": 50
+  }
+}

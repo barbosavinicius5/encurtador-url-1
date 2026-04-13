@@ -2,9 +2,12 @@
 
 from datetime import UTC, datetime
 
+import pytest
+
 from app.domain.entities.api_key import ApiKey
 
 
+@pytest.mark.unit
 class TestApiKeyEntity:
     """Testes para a entidade de domínio ApiKey."""
 

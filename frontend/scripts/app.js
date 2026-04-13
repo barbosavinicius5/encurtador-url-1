@@ -355,3 +355,20 @@ async function loadLinks() {
 document.addEventListener('DOMContentLoaded', () => {
   loadLinks();
 });
+
+// ————————————————————————————————————————————————————
+// Exports para testes unitários (não utilizado no browser)
+// ————————————————————————————————————————————————————
+export {
+  isValidUrl,
+  setLoading,
+  showFieldError,
+  showBannerError,
+  clearErrors,
+  showResult,
+  shortenUrl,
+  truncateUrl,
+  copyWithFeedback,
+  renderLinks,
+  loadLinks,
+};

@@ -20,6 +20,7 @@ def make_entity(short_code: str, session_id: str, click_count: int = 0) -> Short
     )
 
 
+@pytest.mark.unit
 class TestListLinksUseCase:
     """Testes para o use case de listagem de links."""
 

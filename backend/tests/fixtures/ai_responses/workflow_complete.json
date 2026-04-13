@@ -1,0 +1,21 @@
+{
+  "model": "gpt-4o-mini",
+  "id": "chatcmpl-test-workflow-complete",
+  "object": "chat.completion",
+  "created": 1712000002,
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"status\": \"completed\", \"short_code\": \"wFLow1\", \"clicks\": 0, \"ai_generated\": true, \"analysis\": {\"category\": \"technology\", \"safe\": true}}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 200,
+    "completion_tokens": 45,
+    "total_tokens": 245
+  }
+}

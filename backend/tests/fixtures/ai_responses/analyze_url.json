@@ -1,0 +1,21 @@
+{
+  "model": "gpt-4o-mini",
+  "id": "chatcmpl-test-analyze-url",
+  "object": "chat.completion",
+  "created": 1712000001,
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"category\": \"e-commerce\", \"safe\": true, \"language\": \"pt-BR\", \"summary\": \"Página de produto de e-commerce brasileiro\"}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 120,
+    "completion_tokens": 30,
+    "total_tokens": 150
+  }
+}

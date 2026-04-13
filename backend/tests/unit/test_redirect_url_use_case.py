@@ -10,6 +10,7 @@ from app.application.use_cases.redirect_url_use_case import RedirectUrlUseCase
 from app.domain.entities.shortened_url import ShortenedUrl
 
 
+@pytest.mark.unit
 class TestRedirectUrlUseCaseWithClickCount:
     """Testes para o use case de redirect com contagem assíncrona de cliques."""
 
@@ -186,6 +187,7 @@ class TestRedirectUrlUseCaseWithClickCount:
         assert result == "https://example.com"
 
 
+@pytest.mark.unit
 class TestShortenedUrlEntityWithClickCount:
     """Testes para a entidade ShortenedUrl com o campo click_count."""
 

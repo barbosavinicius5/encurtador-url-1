@@ -5,6 +5,7 @@ import pytest
 from app.domain.value_objects.url import UrlValue
 
 
+@pytest.mark.unit
 class TestUrlValueObject:
     """Testes para validação de URL."""
 
