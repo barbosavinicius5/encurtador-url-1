@@ -3,9 +3,11 @@
 import logging
 import logging.config
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.infrastructure.routers.links_router import router as links_router
@@ -62,6 +64,31 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
     )
+
+    # Handler global para erros de validação do Pydantic (campo ausente/inválido)
+    # Retorna mensagem orientativa em português ao invés do erro técnico padrão
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        # Verifica se o erro é de campo 'url' ausente no body do /api/shorten
+        errors = exc.errors()
+        for error in errors:
+            loc = error.get("loc", [])
+            if "url" in loc and error.get("type") == "missing":
+                return JSONResponse(
+                    status_code=422,
+                    content={
+                        "detail": (
+                            "O campo URL é obrigatório. Informe uma URL válida para encurtar."
+                        )
+                    },
+                )
+        # Fallback para outros erros de validação
+        return JSONResponse(
+            status_code=422,
+            content={"detail": errors},
+        )
 
     # HTTPS redirect middleware — apenas em produção
     # Em desenvolvimento e testes, o middleware é desativado para não interferir

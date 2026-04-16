@@ -1,12 +1,26 @@
 /* Reset e base mobile-first */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+/* Foco visível em todos os elementos interativos (WCAG 2.1 AA — Cenário E) */
+:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   background: #f0f4f8;
   min-height: 100vh;
   display: flex;
@@ -67,12 +81,15 @@ label {
 /* Input — font-size mínimo 16px para evitar zoom automático no iOS */
 #url-input {
   width: 100%;
+  min-height: 44px; /* AC8/WCAG: alvo mínimo de toque em mobile */
   font-size: 1rem; /* 16px */
   padding: 0.75rem 1rem;
   border: 2px solid #e2e8f0;
   border-radius: 8px;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   color: #1a202c;
   background: #fff;
 }
@@ -104,6 +121,7 @@ label {
 /* Botão principal */
 #shorten-btn {
   width: 100%;
+  min-height: 44px; /* AC8/WCAG: alvo mínimo de toque em mobile */
   padding: 0.875rem 1.5rem;
   font-size: 1rem;
   font-weight: 600;
@@ -112,7 +130,10 @@ label {
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  transition:
+    background 0.2s,
+    transform 0.1s,
+    box-shadow 0.2s;
   letter-spacing: 0.025em;
 }
 
@@ -191,6 +212,7 @@ label {
 /* Botão copiar */
 #copy-btn {
   flex-shrink: 0;
+  min-height: 44px; /* AC8/WCAG: alvo mínimo de toque em mobile */
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
   font-weight: 600;
@@ -214,7 +236,7 @@ label {
   transform: scale(1.05);
 }
 
-/* Desktop */
+/* Tablet (768px+) */
 @media (min-width: 768px) {
   .container {
     padding: 3rem 2.5rem;
@@ -243,6 +265,36 @@ label {
   }
 }
 
+/* Desktop (1280px+) — AC8: layout funcional a partir de 1280px */
+@media (min-width: 1280px) {
+  .container {
+    max-width: 800px;
+    padding: 3.5rem 3rem;
+  }
+
+  .header h1 {
+    font-size: 2.25rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
+
+  /* Painel de links em desktop largo — mais espaço para colunas */
+  .links-table {
+    font-size: 0.9375rem;
+  }
+
+  .links-table__original-url {
+    max-width: 300px;
+  }
+
+  .links-panel {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
 /* =====================
    Painel de Links
    ===================== */
@@ -250,6 +302,26 @@ label {
 .links-panel {
   margin-top: 2rem;
   width: 100%;
+}
+
+/* Banner de erro do painel de links */
+.links-error-banner {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-left: 4px solid #e53e3e;
+  border-radius: 6px;
+  color: #c53030;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* Indicador de URL indisponível (sanitizada pelo backend) */
+.links-table__url-unavailable {
+  color: #a0aec0;
+  font-style: italic;
+  font-size: 0.8125rem;
 }
 
 .links-panel__title {
@@ -286,6 +358,19 @@ label {
 /* Utilitário */
 .hidden {
   display: none !important;
+}
+
+/* Texto visível apenas para leitores de tela (WCAG — conteúdo acessível) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 /* Wrapper da tabela — permite scroll horizontal apenas no wrapper, não no body */
@@ -366,7 +451,10 @@ label {
   background-color: #ffffff;
   color: #4a5568;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
   white-space: nowrap;
 }
 
@@ -379,6 +467,70 @@ label {
   background-color: #c6f6d5;
   color: #276749;
   border-color: #9ae6b4;
+}
+
+/* =====================
+   Responsividade Mobile mínimo (375px — iPhone SE)
+   Garante que não haja overflow horizontal no menor viewport suportado (Cenário F)
+   ===================== */
+
+@media (max-width: 375px) {
+  body {
+    padding: 0;
+  }
+
+  .container {
+    max-width: 100%;
+    border-radius: 0;
+    padding: 1rem 0.75rem;
+    box-shadow: none;
+    min-height: 100vh;
+    align-items: flex-start;
+  }
+
+  #url-input,
+  #shorten-btn,
+  #copy-btn {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 0.9rem;
+  }
+
+  .result-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .short-url {
+    flex: none;
+    width: 100%;
+  }
+
+  #copy-btn {
+    flex-shrink: 0;
+    width: 100%;
+  }
+
+  /* Painel de links em 375px — tabela adapta para evitar overflow */
+  .links-table {
+    font-size: 0.8125rem;
+  }
+
+  .links-table th,
+  .links-table td {
+    padding: 0.5rem 0.375rem;
+  }
+
+  /* Coluna URL Original — reduzir max-width em telas muito pequenas */
+  .links-table__original-url {
+    max-width: 120px;
+  }
+
+  /* Banner de erro do painel */
+  .links-error-banner {
+    font-size: 0.875rem;
+    padding: 0.625rem 0.75rem;
+  }
 }
 
 /* =====================

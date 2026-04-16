@@ -20,6 +20,13 @@ router = APIRouter()
 
 SESSION_COOKIE_NAME = "session_id"
 
+# Mensagens de erro orientativas (RN4 — orientar o usuário sobre o que fazer)
+_MSG_URL_INVALIDA = (
+    "URL inválida. Verifique se a URL começa com http:// ou https:// e tente novamente."
+)
+_MSG_URL_OBRIGATORIA = "O campo URL é obrigatório. Informe uma URL válida para encurtar."
+_MSG_ERRO_INTERNO = "Ocorreu um erro ao encurtar a URL. Tente novamente em instantes."
+
 
 async def _get_use_case(
     session: AsyncSession = Depends(get_session),
@@ -83,6 +90,10 @@ async def shorten_url(
         is_new_session = True
         logger.info("Nova sessão anônima criada", extra={"session_id_prefix": session_id[:8]})
 
+    # Validação antecipada: campo url vazio ou apenas espaços
+    if not request.url or not request.url.strip():
+        raise HTTPException(status_code=422, detail=_MSG_URL_OBRIGATORIA)
+
     try:
         result = await use_case.execute(request, session_id=session_id)
         logger.info(
@@ -100,9 +111,27 @@ async def shorten_url(
                 path="/",
             )
 
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        # Sanitização da resposta: garantir que os campos são strings simples
+        # O serializer JSON do FastAPI/Pydantic já é seguro para transporte JSON,
+        # mas retornamos explicitamente os valores do modelo validado.
+        return ShortenUrlResponse(
+            short_code=str(result.short_code),
+            short_url=str(result.short_url),
+            original_url=str(result.original_url),
+        )
+    except ValueError:
+        raise HTTPException(status_code=422, detail=_MSG_URL_INVALIDA)
     except RuntimeError as e:
-        logger.error("Erro interno ao encurtar URL", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail="Erro interno ao processar requisição")
+        logger.error(
+            "Erro interno ao encurtar URL",
+            exc_info=True,
+            extra={"error": str(e)},
+        )
+        raise HTTPException(status_code=500, detail=_MSG_ERRO_INTERNO)
+    except Exception as e:
+        logger.error(
+            "Erro inesperado ao encurtar URL",
+            exc_info=True,
+            extra={"error": str(e)},
+        )
+        raise HTTPException(status_code=500, detail=_MSG_ERRO_INTERNO)
